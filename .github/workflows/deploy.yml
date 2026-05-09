@@ -40,4 +40,5 @@ jobs:
             git pull origin master
             PNPM_ONLY_BUILT_DEPENDENCIES=esbuild pnpm install --frozen-lockfile
             pnpm build
-            pm2 restart orb-algo
+            pm2 startOrRestart ecosystem.config.cjs --env production
+            pm2 save
