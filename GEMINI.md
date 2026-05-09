@@ -94,6 +94,12 @@ This rule has no exceptions.
 - Never use console.log — use logger from src/helpers/logger.ts
 - Never commit .env — credentials live on server only
 
+### Git Conventions
+
+- **Commits:** Use `pnpm commit` for interactive, conventional commit messages. Commit messages are enforced via `commitlint`.
+- **Branches:** Branch names must follow the pattern: `<type>/<description>` (e.g., `feature/add-tests`, `fix/login-bug`). Valid types are `feature`, `fix`, `hotfix`, `chore`, `refactor`, `docs`, `test`.
+- **PR Titles:** PR titles must follow the conventional commit format (e.g., `feat: implement ORB scanner`). Enforced via GitHub Actions.
+
 ### When Adding a New Module
 
 1. Create the source file in src/

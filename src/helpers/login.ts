@@ -8,6 +8,11 @@ import axios from 'axios';
 
 let publicIp: string | null = null;
 
+/** @internal - For testing only */
+export function _resetPublicIp(): void {
+  publicIp = null;
+}
+
 async function getPublicIp(): Promise<string> {
   if (publicIp) return publicIp;
   try {
@@ -16,7 +21,7 @@ async function getPublicIp(): Promise<string> {
     );
     publicIp = response.data.ip;
     return publicIp;
-  } catch (error) {
+  } catch {
     logger.warn('Failed to get public IP, using fallback');
     return '127.0.0.1';
   }
@@ -72,6 +77,6 @@ export async function login(): Promise<void> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Login failed: ${message}`);
+    throw new Error(`Login failed: ${message}`, { cause: error });
   }
 }

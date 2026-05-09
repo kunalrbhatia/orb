@@ -74,6 +74,7 @@ cp .env.example .env
 - `pnpm lint`          # ESLint check
 - `pnpm format`        # Prettier format
 - `pnpm test`          # Run tests
+- `pnpm commit`        # Interactive conventional commit
 - `pnpm build`         # Compile to JS
 
 ## Deployment (Oracle Cloud)
