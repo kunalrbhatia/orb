@@ -36,7 +36,7 @@ jobs:
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
-            cd ~/orb-algo
+            cd ~/orb
             git pull origin master
             PNPM_ONLY_BUILT_DEPENDENCIES=esbuild pnpm install --frozen-lockfile
             pnpm build
