@@ -79,6 +79,10 @@ If yes, update README.md first, then commit both together:
 Do NOT commit code changes without updating README if any of the above are affected.
 This rule has no exceptions.
 
+### Instruction & Command Review (MANDATORY)
+
+Always review `GEMINI.md` (and specifically the **Project Conventions** below) before executing any shell commands or pushing code. This ensures strict compliance with local environment constraints (e.g., mandatory PowerShell syntax) and project-specific workflows. This is critical to prevent command failures in the local Windows environment.
+
 ### Project Conventions
 
 - PowerShell Syntax: Since we are on Windows PowerShell, always use `;` as a statement separator instead of `&&`.
@@ -99,6 +103,7 @@ This rule has no exceptions.
 - **Commits:** Use `pnpm commit` for interactive, conventional commit messages. Commit messages are enforced via `commitlint`.
 - **Branches:** Branch names must follow the pattern: `<type>/<description>` (e.g., `feature/add-tests`, `fix/login-bug`). Valid types are `feature`, `fix`, `hotfix`, `chore`, `refactor`, `docs`, `test`.
 - **PR Titles:** PR titles must follow the conventional commit format (e.g., `feat: implement ORB scanner`). Enforced via GitHub Actions.
+- **Pull Requests:** Every PR must have a clear, descriptive title and a detailed description that outlines the changes made, the rationale behind them, and how they were verified. This is mandatory for traceability.
 
 ### When Adding a New Module
 
@@ -110,5 +115,5 @@ This rule has no exceptions.
 ## Project Files of Interest
 
 - `blueprint.md`: The original design specification (source of truth for logic).
-- `ecosystem.config.js`: PM2 configuration for production deployment.
+- `ecosystem.config.cjs`: PM2 configuration for production deployment.
 - `src/helpers/constants.ts`: Contains API URLs, Nifty 50 token list, and timing constants.

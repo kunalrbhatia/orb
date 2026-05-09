@@ -79,6 +79,14 @@ cp .env.example .env
 
 ## Deployment (Oracle Cloud)
 
+### Manual Initial Setup
+1. Clone the repository to `~/orb-algo` on your server.
+2. Install dependencies: `pnpm install`.
+3. Create and fill `.env`.
+4. Build the project: `pnpm build`.
+5. Start with PM2: `pm2 start ecosystem.config.cjs`.
+6. Save PM2 state: `pm2 save`.
+
 ### Automated Deploy
 Every push to `master` that passes CI automatically deploys to Oracle Cloud via GitHub Actions.
 
