@@ -7,6 +7,14 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      API_KEY: dummy_api_key
+      CLIENT_CODE: dummy_client_code
+      CLIENT_PIN: dummy_client_pin
+      CLIENT_TOTP_PIN: dummy_totp_pin
+      TELEGRAM_BOT_TOKEN: dummy_bot_token
+      TELEGRAM_CHAT_ID: dummy_chat_id
+      NODE_ENV: test
 
     steps:
       - uses: actions/checkout@v4

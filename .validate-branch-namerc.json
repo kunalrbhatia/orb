@@ -1,0 +1,4 @@
+{
+  "pattern": "^(feature|fix|hotfix|chore|refactor|docs|test)/[a-z0-9-]+$",
+  "errorMsg": "Branch name must follow the pattern: <type>/<description> (e.g., feature/add-tests)"
+}

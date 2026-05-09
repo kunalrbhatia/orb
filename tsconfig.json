@@ -10,5 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src", "__tests__"]
+  "include": ["src", "__tests__", "__mocks__", "jest.config.ts"]
 }
