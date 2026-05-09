@@ -13,24 +13,18 @@ async function bootstrap(): Promise<void> {
   logger.info('Starting ORB Algo...');
 
   try {
-    const { isTradingDay: trading, reason } = await isTradingDay();
-    if (!trading) {
-      logger.info(`Today is not a trading day: ${reason}`);
-      await sendNotification(
-        `Today is not a trading day: ${reason}. Algo will not run.`,
-      );
-      process.exit(0);
-    }
+    // Start health check server immediately to keep process alive
+    startServer();
 
-    await login();
-    await downloadScripMaster();
-
-    // Register Cron Jobs
+    // Register Cron Jobs (Even on holidays, to keep process alive)
     // Morning Scanner: 10:30 AM IST (Mon-Fri)
     cron.schedule(
       '30 10 * * 1-5',
       () => {
-        void runMorningScanner();
+        void (async (): Promise<void> => {
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runMorningScanner();
+        })();
       },
       { timezone: 'Asia/Kolkata' },
     );
@@ -39,7 +33,10 @@ async function bootstrap(): Promise<void> {
     cron.schedule(
       '*/5 10-15 * * 1-5',
       () => {
-        void runPriceMonitor();
+        void (async (): Promise<void> => {
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runPriceMonitor();
+        })();
       },
       { timezone: 'Asia/Kolkata' },
     );
@@ -48,20 +45,35 @@ async function bootstrap(): Promise<void> {
     cron.schedule(
       '*/5 10-15 * * 1-5',
       () => {
-        void runTradeMonitor();
+        void (async (): Promise<void> => {
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runTradeMonitor();
+        })();
       },
       { timezone: 'Asia/Kolkata' },
     );
 
-    startServer();
-    logger.info('ORB Algo started successfully');
+    const { isTradingDay: trading, reason } = await isTradingDay();
+    if (!trading) {
+      logger.info(`Today is not a trading day: ${reason}`);
+      await sendNotification(
+        `Today is not a trading day: ${reason}. Algo is in standby mode.`,
+      );
+      return;
+    }
+
+    await login();
+    await downloadScripMaster();
+
+    logger.info('ORB Algo initialized successfully');
     void sendNotification(
-      'ORB Algo started successfully and is now waiting for 10:30 AM scan.',
+      'ORB Algo initialized successfully and is now waiting for 10:30 AM scan.',
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`Bootstrap failed: ${message}`);
     void sendNotification(`CRITICAL: Algo failed to start: ${message}`);
+    // Only exit on catastrophic bootstrap errors
     process.exit(1);
   }
 }
