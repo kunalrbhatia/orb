@@ -60,7 +60,7 @@ async function handleCommand(command: string): Promise<void> {
     }
   }
 
-  if (command === '/paper-orb') {
+  if (command === '/paperorb') {
     if (isPaperMode()) {
       fs.unlinkSync(PAPER_TRADE_FILE);
       logger.info('Paper mode disabled');

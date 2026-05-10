@@ -176,7 +176,7 @@ describe('telegramListener', () => {
       );
     });
 
-    it('should handle /paper-orb command (enable)', async () => {
+    it('should handle /paperorb command (enable)', async () => {
       (fs.existsSync as jest.Mock).mockReturnValue(false);
       (axios.get as jest.Mock).mockResolvedValueOnce({
         data: {
@@ -184,7 +184,7 @@ describe('telegramListener', () => {
             {
               update_id: 101,
               message: {
-                text: '/paper-orb',
+                text: '/paperorb',
                 chat: { id: 123456789 },
               },
             },
@@ -204,7 +204,7 @@ describe('telegramListener', () => {
       );
     });
 
-    it('should handle /paper-orb command (disable)', async () => {
+    it('should handle /paperorb command (disable)', async () => {
       (fs.existsSync as jest.Mock).mockReturnValue(true);
       (axios.get as jest.Mock).mockResolvedValueOnce({
         data: {
@@ -212,7 +212,7 @@ describe('telegramListener', () => {
             {
               update_id: 102,
               message: {
-                text: '/paper-orb',
+                text: '/paperorb',
                 chat: { id: 123456789 },
               },
             },
