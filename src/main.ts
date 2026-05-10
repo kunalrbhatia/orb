@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
     // Start health check server immediately to keep process alive
     startServer();
 
-    // Start Telegram listener to handle commands (/killorb, /paper-orb, /resumeorb)
+    // Start Telegram listener to handle commands (/killorb, /paperorb, /resumeorb)
     void startTelegramListener();
 
     // Register Cron Jobs (Even on holidays, to keep process alive)

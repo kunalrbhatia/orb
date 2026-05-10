@@ -83,7 +83,7 @@ The following commands can be sent to the Telegram bot to control the algorithm 
 
 - `/killorb`: Activates the **Soft Kill Switch**. Suspends all core tasks (scanning, monitoring, trading) but keeps the process alive.
 - `/resumeorb`: Deactivates the Soft Kill Switch and resumes normal operations.
-- `/paper-orb`: Toggles **Paper Trading Mode**. When enabled, the algo performs all calculations and scans but mocks order placement instead of taking actual trades.
+- `/paperorb`: Toggles **Paper Trading Mode**. When enabled, the algo performs all calculations and scans but mocks order placement instead of taking actual trades.
 
 ## Soft Kill Switch
 
@@ -97,7 +97,7 @@ The Soft Kill mechanism is designed for emergency pauses without losing the bot'
 
 Paper mode allows you to test the algorithm without risking real capital.
 
-- **Toggle:** Send `/paper-orb` via Telegram.
+- **Toggle:** Send `/paperorb` via Telegram.
 - **Verification:** When enabled, all trade notifications in Telegram will be prefixed with `[PAPER]`.
 - **Persistence:** The mode persists across restarts via a `.paper-trade` file in the root directory.
 
