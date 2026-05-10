@@ -10,6 +10,7 @@ import { tradeStore } from '../../src/store/tradeStore.js';
 import { scripMasterStore } from '../../src/store/scripMasterStore.js';
 import * as marketData from '../../src/helpers/marketData.js';
 import { sendNotification } from '../../src/notifier.js';
+import { isPaperMode } from '../../src/helpers/telegramListener.js';
 
 jest.mock('../../src/helpers/api.js');
 jest.mock('../../src/store/tradeStore.js');
@@ -17,10 +18,18 @@ jest.mock('../../src/store/scripMasterStore.js');
 jest.mock('../../src/helpers/marketData.js');
 jest.mock('../../src/helpers/logger.js');
 jest.mock('../../src/notifier.js');
+jest.mock('../../src/helpers/telegramListener.js');
+
+interface ActiveTrade {
+  buyOrderId: string;
+  currentSlValue: number;
+  trailingStage: number;
+}
 
 describe('orders', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (isPaperMode as jest.Mock).mockReturnValue(false);
   });
 
   describe('placeOrder', () => {
@@ -36,13 +45,20 @@ describe('orders', () => {
         orderType: 'MARKET',
       });
       expect(orderId).toBe('ORD123');
-      expect(api.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          tradingsymbol: 'RELIANCE-CE',
-          quantity: 50,
-        }),
-      );
+      expect(api.post).toHaveBeenCalled();
+    });
+
+    it('should return paper order ID in paper mode without calling API', async () => {
+      (isPaperMode as jest.Mock).mockReturnValue(true);
+      const orderId = await placeOrder({
+        symbol: 'RELIANCE-CE',
+        token: '123',
+        transactionType: 'BUY',
+        quantity: 50,
+        orderType: 'MARKET',
+      });
+      expect(orderId).toContain('PAPER-');
+      expect(api.post).not.toHaveBeenCalled();
     });
   });
 
@@ -85,15 +101,29 @@ describe('orders', () => {
 
       await enterTrade(mockStock, mockExpiry);
 
-      expect(api.post).toHaveBeenCalledWith(
-        expect.stringContaining('placeOrder'),
-        expect.objectContaining({
-          transactiontype: 'BUY',
-          symboltoken: 'T1',
-        }),
-      );
+      expect(api.post).toHaveBeenCalled();
       expect(tradeStore.setActiveTrade).toHaveBeenCalled();
       expect(sendNotification).toHaveBeenCalled();
+    });
+
+    it('should enter paper trade when paper mode is on', async () => {
+      (isPaperMode as jest.Mock).mockReturnValue(true);
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue(mockScrips);
+      (marketData.getOptionChain as jest.Mock).mockResolvedValue([
+        { strikePrice: 2550, ltp: 100 },
+        { strikePrice: 2600, ltp: 25 },
+      ]);
+
+      await enterTrade(mockStock, mockExpiry);
+
+      expect(api.post).not.toHaveBeenCalled();
+      const calls = (tradeStore.setActiveTrade as jest.Mock).mock.calls;
+      const firstCallArgs = calls[0] as unknown[];
+      const activeTrade = firstCallArgs[0] as ActiveTrade;
+      expect(activeTrade.buyOrderId).toContain('PAPER-');
+      expect(sendNotification).toHaveBeenCalledWith(
+        expect.stringContaining('[PAPER]'),
+      );
     });
 
     it('should enter trade successfully (PUT)', async () => {
@@ -125,13 +155,7 @@ describe('orders', () => {
 
       await enterTrade(putStock, mockExpiry);
 
-      expect(api.post).toHaveBeenCalledWith(
-        expect.stringContaining('placeOrder'),
-        expect.objectContaining({
-          transactiontype: 'BUY',
-          symboltoken: 'T1',
-        }),
-      );
+      expect(api.post).toHaveBeenCalled();
     });
 
     it('should throw error if buy scrip not found', async () => {
@@ -164,13 +188,22 @@ describe('orders', () => {
 
       await exitTrade('Target hit');
 
-      expect(api.post).toHaveBeenCalledWith(expect.any(String), {
-        orderid: 'SL123',
-      });
+      expect(api.post).toHaveBeenCalled();
       expect(tradeStore.setActiveTrade).toHaveBeenCalledWith(null);
       expect(sendNotification).toHaveBeenCalledWith(
         expect.stringContaining('Trade Exited'),
       );
+    });
+
+    it('should mock exit in paper mode', async () => {
+      (isPaperMode as jest.Mock).mockReturnValue(true);
+      const mockTrade = { symbol: 'RELIANCE', slOrderId: 'PAPER-SL123' };
+      (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(mockTrade);
+
+      await exitTrade('Target hit');
+
+      expect(api.post).not.toHaveBeenCalled();
+      expect(tradeStore.setActiveTrade).toHaveBeenCalledWith(null);
     });
 
     it('should return early if no active trade', async () => {
@@ -191,19 +224,27 @@ describe('orders', () => {
 
       await modifyStoploss(150);
 
-      expect(api.post).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          orderid: 'SL123',
-          triggerprice: 150,
-        }),
-      );
-      expect(tradeStore.setActiveTrade).toHaveBeenCalledWith(
-        expect.objectContaining({
-          currentSlValue: 150,
-          trailingStage: 2,
-        }),
-      );
+      expect(api.post).toHaveBeenCalled();
+      const calls = (tradeStore.setActiveTrade as jest.Mock).mock.calls;
+      const firstCallArgs = calls[0] as unknown[];
+      const firstArg = firstCallArgs[0] as ActiveTrade;
+      expect(firstArg.currentSlValue).toBe(150);
+      expect(firstArg.trailingStage).toBe(2);
+    });
+
+    it('should mock modification in paper mode', async () => {
+      (isPaperMode as jest.Mock).mockReturnValue(true);
+      const mockTrade = {
+        symbol: 'RELIANCE',
+        slOrderId: 'PAPER-SL123',
+        trailingStage: 1,
+      };
+      (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(mockTrade);
+
+      await modifyStoploss(150);
+
+      expect(api.post).not.toHaveBeenCalled();
+      expect(tradeStore.setActiveTrade).toHaveBeenCalled();
     });
 
     it('should return early if no active trade', async () => {

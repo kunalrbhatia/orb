@@ -5,6 +5,7 @@ import { scripMasterStore } from '../store/scripMasterStore.js';
 import { getOptionChain } from './marketData.js';
 import { logger } from './logger.js';
 import { sendNotification } from '../notifier.js';
+import { isPaperMode } from './telegramListener.js';
 
 export async function placeOrder(params: {
   symbol: string;
@@ -15,6 +16,14 @@ export async function placeOrder(params: {
   price?: number;
   triggerPrice?: number;
 }): Promise<string> {
+  if (isPaperMode()) {
+    const paperId = `PAPER-${Date.now()}`;
+    logger.info(
+      `[PAPER MODE] Mocking order placement for ${params.symbol}: ${paperId}`,
+    );
+    return paperId;
+  }
+
   const payload = {
     exchange: 'NFO',
     tradingsymbol: params.symbol,
@@ -35,11 +44,38 @@ export async function placeOrder(params: {
   return response.data.orderid;
 }
 
+export async function cancelOrder(orderId: string): Promise<void> {
+  if (isPaperMode()) {
+    logger.info(`[PAPER MODE] Mocking order cancellation: ${orderId}`);
+    return;
+  }
+  await api.post(ANGEL_ONE_URLS.CANCEL_ORDER, { orderid: orderId });
+}
+
+export async function modifyOrder(params: {
+  orderId: string;
+  triggerPrice: number;
+  orderType: 'STOPLOSS_MARKET';
+}): Promise<void> {
+  if (isPaperMode()) {
+    logger.info(
+      `[PAPER MODE] Mocking order modification for ${params.orderId}: new SL ${params.triggerPrice}`,
+    );
+    return;
+  }
+  await api.post(ANGEL_ONE_URLS.MODIFY_ORDER, {
+    orderid: params.orderId,
+    triggerprice: params.triggerPrice,
+    ordertype: params.orderType,
+  });
+}
+
 export async function enterTrade(
   stock: WatchStock,
   expiry: string,
 ): Promise<void> {
-  logger.info(`Entering trade for ${stock.symbol}`);
+  const paperPrefix = isPaperMode() ? '[PAPER] ' : '';
+  logger.info(`${paperPrefix}Entering trade for ${stock.symbol}`);
 
   const allScrips = scripMasterStore.getScrips();
   const buyScrip = allScrips.find(
@@ -123,7 +159,7 @@ export async function enterTrade(
   });
 
   await sendNotification(
-    `🚀 Trade Entered: ${stock.symbol}\nBUY ${buyScrip.symbol} @ ${buyOption?.ltp}\nSELL ${hedgeScrip.symbol} @ ${hedgeOption.ltp}\nSL: ${initialSl}`,
+    `${paperPrefix}🚀 Trade Entered: ${stock.symbol}\nBUY ${buyScrip.symbol} @ ${buyOption?.ltp}\nSELL ${hedgeScrip.symbol} @ ${hedgeOption.ltp}\nSL: ${initialSl}`,
   );
 }
 
@@ -131,16 +167,19 @@ export async function exitTrade(reason: string): Promise<void> {
   const trade = tradeStore.getActiveTrade();
   if (!trade) return;
 
-  logger.info(`Exiting trade: ${reason}`);
+  const paperPrefix = isPaperMode() ? '[PAPER] ' : '';
+  logger.info(`${paperPrefix}Exiting trade: ${reason}`);
 
   // 1. Cancel SL
-  await api.post(ANGEL_ONE_URLS.CANCEL_ORDER, { orderid: trade.slOrderId });
+  await cancelOrder(trade.slOrderId);
 
   // 2. Square off legs
   // (In production, you'd fetch current symbols/tokens from tradeStore or order book)
   // This is a simplified placeholder
 
-  await sendNotification(`🏁 Trade Exited: ${trade.symbol}\nReason: ${reason}`);
+  await sendNotification(
+    `${paperPrefix}🏁 Trade Exited: ${trade.symbol}\nReason: ${reason}`,
+  );
   tradeStore.setActiveTrade(null);
 }
 
@@ -148,10 +187,10 @@ export async function modifyStoploss(newSl: number): Promise<void> {
   const trade = tradeStore.getActiveTrade();
   if (!trade) return;
 
-  await api.post(ANGEL_ONE_URLS.MODIFY_ORDER, {
-    orderid: trade.slOrderId,
-    triggerprice: newSl,
-    ordertype: 'STOPLOSS_MARKET',
+  await modifyOrder({
+    orderId: trade.slOrderId,
+    triggerPrice: newSl,
+    orderType: 'STOPLOSS_MARKET',
   });
 
   tradeStore.setActiveTrade({
