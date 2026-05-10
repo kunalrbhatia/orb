@@ -77,6 +77,30 @@ cp .env.example .env
 - `pnpm commit`        # Interactive conventional commit
 - `pnpm build`         # Compile to JS
 
+## Telegram Commands
+
+The following commands can be sent to the Telegram bot to control the algorithm in real-time:
+
+- `/killorb`: Activates the **Soft Kill Switch**. Suspends all core tasks (scanning, monitoring, trading) but keeps the process alive.
+- `/resumeorb`: Deactivates the Soft Kill Switch and resumes normal operations.
+- `/paper-orb`: Toggles **Paper Trading Mode**. When enabled, the algo performs all calculations and scans but mocks order placement instead of taking actual trades.
+
+## Soft Kill Switch
+
+The Soft Kill mechanism is designed for emergency pauses without losing the bot's state.
+
+- **Suspend:** Send `/killorb`. The bot will stop executing scheduled tasks and notify you.
+- **Resume:** Send `/resumeorb`. The bot will resume its schedule immediately.
+- **Advantages:** Unlike a hard process shutdown, Soft Kill maintains your Angel One session and scrip data in memory, saving API rate limits and avoiding heavy bootstrap phases.
+
+## Paper Trading Mode
+
+Paper mode allows you to test the algorithm without risking real capital.
+
+- **Toggle:** Send `/paper-orb` via Telegram.
+- **Verification:** When enabled, all trade notifications in Telegram will be prefixed with `[PAPER]`.
+- **Persistence:** The mode persists across restarts via a `.paper-trade` file in the root directory.
+
 ## Deployment (Oracle Cloud)
 
 ### Manual Initial Setup

@@ -8,6 +8,7 @@ import { runTradeMonitor } from './jobs/tradeMonitor.js';
 import { startServer } from './server.js';
 import { logger } from './helpers/logger.js';
 import { sendNotification } from './notifier.js';
+import { startTelegramListener, isKilled } from './helpers/telegramListener.js';
 
 async function bootstrap(): Promise<void> {
   logger.info('Starting ORB Algo...');
@@ -16,12 +17,19 @@ async function bootstrap(): Promise<void> {
     // Start health check server immediately to keep process alive
     startServer();
 
+    // Start Telegram listener to handle commands (/killorb, /paper-orb, /resumeorb)
+    void startTelegramListener();
+
     // Register Cron Jobs (Even on holidays, to keep process alive)
     // Morning Scanner: 10:30 AM IST (Mon-Fri)
     cron.schedule(
       '30 10 * * 1-5',
       () => {
         void (async (): Promise<void> => {
+          if (isKilled()) {
+            logger.warn('Morning Scanner skipped: Algo is in KILLED state.');
+            return;
+          }
           const { isTradingDay: trading } = await isTradingDay();
           if (trading) await runMorningScanner();
         })();
@@ -34,6 +42,10 @@ async function bootstrap(): Promise<void> {
       '*/5 10-15 * * 1-5',
       () => {
         void (async (): Promise<void> => {
+          if (isKilled()) {
+            logger.warn('Price Monitor skipped: Algo is in KILLED state.');
+            return;
+          }
           const { isTradingDay: trading } = await isTradingDay();
           if (trading) await runPriceMonitor();
         })();
@@ -46,6 +58,10 @@ async function bootstrap(): Promise<void> {
       '*/5 10-15 * * 1-5',
       () => {
         void (async (): Promise<void> => {
+          if (isKilled()) {
+            logger.warn('Trade Monitor skipped: Algo is in KILLED state.');
+            return;
+          }
           const { isTradingDay: trading } = await isTradingDay();
           if (trading) await runTradeMonitor();
         })();

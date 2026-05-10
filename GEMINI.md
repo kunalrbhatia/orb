@@ -100,6 +100,7 @@ Always review `GEMINI.md` (and specifically the **Project Conventions** below) b
 
 ### Git Conventions
 
+- **Branching Rule:** Pushing directly to `master` (or `main`) is strictly prohibited. All changes must be developed on a feature/fix branch and merged via Pull Request.
 - **Commits:** Use `pnpm commit` for interactive, conventional commit messages. Commit messages are enforced via `commitlint`.
 - **Branches:** Branch names must follow the pattern: `<type>/<description>` (e.g., `feature/add-tests`, `fix/login-bug`). Valid types are `feature`, `fix`, `hotfix`, `chore`, `refactor`, `docs`, `test`.
 - **PR Titles:** PR titles must follow the conventional commit format (e.g., `feat: implement ORB scanner`). Enforced via GitHub Actions.
