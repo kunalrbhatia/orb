@@ -44,12 +44,14 @@ describe('morningScanner', () => {
     });
     (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue(mockExpiry);
     (marketData.getOptionChain as jest.Mock).mockResolvedValue([]);
-    (marketData.getMorningCandles as jest.Mock).mockImplementation((token: string) => {
-      if (token === '2885') {
-        return Promise.resolve([{ high: 2550, low: 2450 }]);
-      }
-      return Promise.resolve([{ high: 3600, low: 3450 }]);
-    });
+    (marketData.getMorningCandles as jest.Mock).mockImplementation(
+      (token: string) => {
+        if (token === '2885') {
+          return Promise.resolve([{ high: 2550, low: 2450 }]);
+        }
+        return Promise.resolve([{ high: 3600, low: 3450 }]);
+      },
+    );
     (oiAnalyzer.findResistance as jest.Mock).mockReturnValue(2600);
     (oiAnalyzer.findSupport as jest.Mock).mockReturnValue(3400);
 

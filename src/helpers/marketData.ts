@@ -2,10 +2,7 @@ import { api } from './api.js';
 import { ANGEL_ONE_URLS, NIFTY_50_TOKENS } from './constants.js';
 import moment from 'moment-timezone';
 import { logger } from './logger.js';
-import {
-  scripMasterStore,
-  Scrip,
-} from '../store/scripMasterStore.js';
+import { scripMasterStore, Scrip } from '../store/scripMasterStore.js';
 
 export interface Stock {
   symbol: string;
@@ -112,7 +109,9 @@ export async function getTopMovers(): Promise<{
           typeof retryResponse === 'string' &&
           (retryResponse as string).includes('<html>')
         ) {
-          logger.error(`Top movers batch ${i / 10 + 1} rejected again. Skipping.`);
+          logger.error(
+            `Top movers batch ${i / 10 + 1} rejected again. Skipping.`,
+          );
           continue;
         }
         const data = retryResponse.data || [];
@@ -288,7 +287,7 @@ export function getMonthlyExpiry(): string {
 
   const scrips = scripMasterStore.getScrips();
   const monthName = now.format('MMM').toUpperCase();
-  
+
   // Find all expiries for the current month
   const expiries = [
     ...new Set(
@@ -363,8 +362,10 @@ export async function getMorningCandles(
   exchange: 'NSE' | 'NFO' = 'NSE',
 ): Promise<Candle[]> {
   const now = moment().tz('Asia/Kolkata');
-  const fromDate = now.clone().set({ hour: 9, minute: 15, second: 0, millisecond: 0 });
-  
+  const fromDate = now
+    .clone()
+    .set({ hour: 9, minute: 15, second: 0, millisecond: 0 });
+
   // If we are before 9:15, return empty
   if (now.isBefore(fromDate)) {
     return [];

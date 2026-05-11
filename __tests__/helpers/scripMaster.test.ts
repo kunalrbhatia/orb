@@ -59,10 +59,8 @@ describe('scripMaster', () => {
     );
   });
 
-  it(
-    'should throw error and log on download failure',
-    async () => {
-      mockedAxios.get.mockRejectedValue(new Error('Network Error'));
+  it('should throw error and log on download failure', async () => {
+    mockedAxios.get.mockRejectedValue(new Error('Network Error'));
 
     await expect(downloadScripMaster()).rejects.toThrow('Network Error');
     expect(logger.error).toHaveBeenCalledWith(
@@ -72,18 +70,14 @@ describe('scripMaster', () => {
     );
   }, 10000);
 
-  it(
-    'should handle non-Error objects in catch block',
-    async () => {
-      mockedAxios.get.mockRejectedValue('String Error');
+  it('should handle non-Error objects in catch block', async () => {
+    mockedAxios.get.mockRejectedValue('String Error');
 
-      await expect(downloadScripMaster()).rejects.toBe('String Error');
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'Failed to download scrip master after 3 attempts: String Error',
-        ),
-      );
-    },
-    10000,
-  );
+    await expect(downloadScripMaster()).rejects.toBe('String Error');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Failed to download scrip master after 3 attempts: String Error',
+      ),
+    );
+  }, 10000);
 });

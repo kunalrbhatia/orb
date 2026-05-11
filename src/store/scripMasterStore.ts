@@ -29,9 +29,17 @@ class ScripMasterStore {
       s => s.name.trim() === searchName && s.expiry === expiry,
     );
     if (filtered.length === 0) {
-        // Find what expiries ARE available for this name
-        const available = [...new Set(this.scrips.filter(s => s.name.trim() === searchName).map(s => s.expiry))];
-        logger.info(`No match for ${searchName} with expiry ${expiry}. Available for ${searchName}: ${available.join(', ')}`);
+      // Find what expiries ARE available for this name
+      const available = [
+        ...new Set(
+          this.scrips
+            .filter(s => s.name.trim() === searchName)
+            .map(s => s.expiry),
+        ),
+      ];
+      logger.info(
+        `No match for ${searchName} with expiry ${expiry}. Available for ${searchName}: ${available.join(', ')}`,
+      );
     }
     return filtered;
   }

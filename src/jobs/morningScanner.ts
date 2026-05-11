@@ -22,10 +22,13 @@ export async function runMorningScanner(): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const chain = await getOptionChain(stock.name, expiry);
       const oiResistance = findResistance(chain, stock.ltp);
-      
+
       const candles = await getMorningCandles(stock.symbolToken);
-      const candleLevels = candles.length > 0 ? findLevelsFromCandles(candles) : null;
-      const candleResistance = candleLevels ? candleLevels.resistance : stock.ltp;
+      const candleLevels =
+        candles.length > 0 ? findLevelsFromCandles(candles) : null;
+      const candleResistance = candleLevels
+        ? candleLevels.resistance
+        : stock.ltp;
 
       // Use the higher of OI resistance and candle high for a more conservative breakout level
       const watchLevel = Math.max(oiResistance, candleResistance);
@@ -38,8 +41,10 @@ export async function runMorningScanner(): Promise<void> {
         watchLevel,
         breachStartTime: null,
       });
-      
-      logger.info(`[${stock.symbol}] OI Resistance: ${oiResistance}, Candle High: ${candleResistance}, Final WatchLevel: ${watchLevel}`);
+
+      logger.info(
+        `[${stock.symbol}] OI Resistance: ${oiResistance}, Candle High: ${candleResistance}, Final WatchLevel: ${watchLevel}`,
+      );
     }
 
     for (const stock of losers) {
@@ -48,7 +53,8 @@ export async function runMorningScanner(): Promise<void> {
       const oiSupport = findSupport(chain, stock.ltp);
 
       const candles = await getMorningCandles(stock.symbolToken);
-      const candleLevels = candles.length > 0 ? findLevelsFromCandles(candles) : null;
+      const candleLevels =
+        candles.length > 0 ? findLevelsFromCandles(candles) : null;
       const candleSupport = candleLevels ? candleLevels.support : stock.ltp;
 
       // Use the lower of OI support and candle low for a more conservative breakdown level
@@ -63,7 +69,9 @@ export async function runMorningScanner(): Promise<void> {
         breachStartTime: null,
       });
 
-      logger.info(`[${stock.symbol}] OI Support: ${oiSupport}, Candle Low: ${candleSupport}, Final WatchLevel: ${watchLevel}`);
+      logger.info(
+        `[${stock.symbol}] OI Support: ${oiSupport}, Candle Low: ${candleSupport}, Final WatchLevel: ${watchLevel}`,
+      );
     }
 
     tradeStore.setWatchList(watchList);

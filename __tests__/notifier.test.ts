@@ -48,7 +48,9 @@ describe('notifier', () => {
     it('should escape special characters', () => {
       const text = '_*[]()~`>#+-=|{}.!';
       const escaped = escapeMarkdownV2(text);
-      expect(escaped).toBe('\\_\\*\\[\\]\\(\\)\\~\\`\\>\\#\\+\\-\\=\\|\\{\\}\\.\\!');
+      expect(escaped).toBe(
+        '\\_\\*\\[\\]\\(\\)\\~\\`\\>\\#\\+\\-\\=\\|\\{\\}\\.\\!',
+      );
     });
 
     it('should not escape alphanumeric characters', () => {

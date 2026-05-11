@@ -2,10 +2,7 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
 import { SCRIP_MASTER_URL, NIFTY_50_TOKENS } from './constants.js';
-import {
-  scripMasterStore,
-  Scrip,
-} from '../store/scripMasterStore.js';
+import { scripMasterStore, Scrip } from '../store/scripMasterStore.js';
 import { logger } from './logger.js';
 import moment from 'moment-timezone';
 
@@ -39,7 +36,9 @@ export async function downloadScripMaster(
       logger.info('Cache expired. Downloading fresh scrip master...');
     }
   } catch (err) {
-    logger.warn(`Failed to read cache: ${err instanceof Error ? err.message : String(err)}`);
+    logger.warn(
+      `Failed to read cache: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -85,7 +84,9 @@ export async function downloadScripMaster(
         );
         logger.info('Scrip master cached locally.');
       } catch (cacheErr) {
-        logger.warn(`Failed to save cache: ${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`);
+        logger.warn(
+          `Failed to save cache: ${cacheErr instanceof Error ? cacheErr.message : String(cacheErr)}`,
+        );
       }
 
       logger.info(

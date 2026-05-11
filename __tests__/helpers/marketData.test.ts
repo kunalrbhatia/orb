@@ -1,4 +1,3 @@
- 
 import {
   getLtp,
   getTopMovers,
@@ -35,30 +34,26 @@ describe('marketData', () => {
   });
 
   describe('getTopMovers', () => {
-    it(
-      'should fetch and sort top movers',
-      async () => {
-        (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-          { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE' },
-          { symbol: 'S2-EQ', token: '15083', exch_seg: 'NSE' },
-          { symbol: 'S3-EQ', token: '157', exch_seg: 'NSE' },
-        ]);
+    it('should fetch and sort top movers', async () => {
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
+        { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE' },
+        { symbol: 'S2-EQ', token: '15083', exch_seg: 'NSE' },
+        { symbol: 'S3-EQ', token: '157', exch_seg: 'NSE' },
+      ]);
 
-        (api.post as jest.Mock).mockResolvedValue({
-          data: [
-            { symboltoken: '25', ltp: '110', close: '100' }, // S1 (10%)
-            { symboltoken: '15083', ltp: '105', close: '100' }, // S2 (5%)
-            { symboltoken: '157', ltp: '90', close: '100' }, // S3 (-10%)
-          ],
-        });
+      (api.post as jest.Mock).mockResolvedValue({
+        data: [
+          { symboltoken: '25', ltp: '110', close: '100' }, // S1 (10%)
+          { symboltoken: '15083', ltp: '105', close: '100' }, // S2 (5%)
+          { symboltoken: '157', ltp: '90', close: '100' }, // S3 (-10%)
+        ],
+      });
 
-        const { gainers, losers } = await getTopMovers();
+      const { gainers, losers } = await getTopMovers();
 
-        expect(gainers[0].symbol).toBe('S1');
-        expect(losers[0].symbol).toBe('S3');
-      },
-      10000,
-    );
+      expect(gainers[0].symbol).toBe('S1');
+      expect(losers[0].symbol).toBe('S3');
+    }, 10000);
   });
 
   describe('getBatchLtp', () => {
@@ -80,10 +75,24 @@ describe('marketData', () => {
   describe('getOptionChain', () => {
     it('should fetch full option chain using scrip master and MARKET_DATA', async () => {
       const mockScrips = [
-        { symbol: 'COALINDIA28MAY26500CE', token: 'T1', name: 'COALINDIA', expiry: '28MAY2026', strike: '50000' },
-        { symbol: 'COALINDIA28MAY26465CE', token: 'T2', name: 'COALINDIA', expiry: '28MAY2026', strike: '46500' },
+        {
+          symbol: 'COALINDIA28MAY26500CE',
+          token: 'T1',
+          name: 'COALINDIA',
+          expiry: '28MAY2026',
+          strike: '50000',
+        },
+        {
+          symbol: 'COALINDIA28MAY26465CE',
+          token: 'T2',
+          name: 'COALINDIA',
+          expiry: '28MAY2026',
+          strike: '46500',
+        },
       ];
-      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue(mockScrips);
+      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue(
+        mockScrips,
+      );
 
       (api.post as jest.Mock).mockResolvedValue({
         data: [
@@ -177,7 +186,10 @@ describe('marketData', () => {
 
       expect(candles).toHaveLength(1);
       expect(candles[0].high).toBe(110);
-      expect(api.post).toHaveBeenCalledWith(expect.stringContaining('getCandleData'), expect.any(Object));
+      expect(api.post).toHaveBeenCalledWith(
+        expect.stringContaining('getCandleData'),
+        expect.any(Object),
+      );
     });
 
     it('should handle errors in historical data fetch', async () => {
@@ -217,7 +229,7 @@ describe('marketData', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-05-11T10:30:00.000Z'));
       (api.post as jest.Mock).mockRejectedValue(new Error('Network error'));
-      
+
       const candles = await getMorningCandles('2885', 'NSE');
       expect(candles).toHaveLength(0);
       expect(logger.error).toHaveBeenCalled();

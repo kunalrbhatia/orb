@@ -13,9 +13,7 @@ export async function sendNotification(
   const url = `https://api.telegram.org/bot${config.telegramBotToken}/sendMessage`;
   try {
     const prefix =
-      parseMode === 'HTML'
-        ? '<b>[ORB Algo]</b>\n\n'
-        : '*[ORB Algo]*\n\n';
+      parseMode === 'HTML' ? '<b>[ORB Algo]</b>\n\n' : '*[ORB Algo]*\n\n';
 
     await axios.post(url, {
       chat_id: config.telegramChatId,

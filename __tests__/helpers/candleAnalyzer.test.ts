@@ -1,4 +1,7 @@
-import { findLevelsFromCandles, calculatePivotPoints } from '../../src/helpers/candleAnalyzer.js';
+import {
+  findLevelsFromCandles,
+  calculatePivotPoints,
+} from '../../src/helpers/candleAnalyzer.js';
 import { Candle } from '../../src/helpers/marketData.js';
 
 describe('candleAnalyzer', () => {
@@ -16,7 +19,9 @@ describe('candleAnalyzer', () => {
     });
 
     it('should throw error for empty candle list', () => {
-      expect(() => findLevelsFromCandles([])).toThrow('Cannot analyze empty candle list');
+      expect(() => findLevelsFromCandles([])).toThrow(
+        'Cannot analyze empty candle list',
+      );
     });
   });
 
@@ -32,25 +37,25 @@ describe('candleAnalyzer', () => {
       };
 
       const pivots = calculatePivotPoints(candle);
-      
+
       // P = (110 + 90 + 105) / 3 = 305 / 3 = 101.666...
       expect(pivots.p).toBeCloseTo(101.66666666666667);
-      
+
       // R1 = 2 * P - L = 2 * 101.666 - 90 = 203.333 - 90 = 113.333...
       expect(pivots.r1).toBeCloseTo(113.33333333333334);
-      
+
       // S1 = 2 * P - H = 2 * 101.666 - 110 = 203.333 - 110 = 93.333...
       expect(pivots.s1).toBeCloseTo(93.33333333333334);
-      
+
       // R2 = P + (H - L) = 101.666 + 20 = 121.666...
       expect(pivots.r2).toBeCloseTo(121.66666666666667);
-      
+
       // S2 = P - (H - L) = 101.666 - 20 = 81.666...
       expect(pivots.s2).toBeCloseTo(81.66666666666667);
-      
+
       // R3 = H + 2 * (P - L) = 110 + 2 * (101.666 - 90) = 110 + 23.333 = 133.333...
       expect(pivots.r3).toBeCloseTo(133.33333333333334);
-      
+
       // S3 = L - 2 * (H - P) = 90 - 2 * (110 - 101.666) = 90 - 2 * 8.333 = 90 - 16.666 = 73.333...
       expect(pivots.s3).toBeCloseTo(73.33333333333334);
     });
