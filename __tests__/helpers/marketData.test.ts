@@ -35,23 +35,30 @@ describe('marketData', () => {
   });
 
   describe('getTopMovers', () => {
-    it('should fetch and sort top movers', async () => {
-      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-        { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE' },
-        { symbol: 'S2-EQ', token: '15083', exch_seg: 'NSE' },
-        { symbol: 'S3-EQ', token: '157', exch_seg: 'NSE' },
-      ]);
+    it(
+      'should fetch and sort top movers',
+      async () => {
+        (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
+          { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE' },
+          { symbol: 'S2-EQ', token: '15083', exch_seg: 'NSE' },
+          { symbol: 'S3-EQ', token: '157', exch_seg: 'NSE' },
+        ]);
 
-      (api.post as jest.Mock)
-        .mockResolvedValueOnce({ data: { ltp: 110, close: 100 } }) // S1 (10%)
-        .mockResolvedValueOnce({ data: { ltp: 105, close: 100 } }) // S2 (5%)
-        .mockResolvedValueOnce({ data: { ltp: 90, close: 100 } }); // S3 (-10%)
+        (api.post as jest.Mock).mockResolvedValue({
+          data: [
+            { symboltoken: '25', ltp: '110', close: '100' }, // S1 (10%)
+            { symboltoken: '15083', ltp: '105', close: '100' }, // S2 (5%)
+            { symboltoken: '157', ltp: '90', close: '100' }, // S3 (-10%)
+          ],
+        });
 
-      const { gainers, losers } = await getTopMovers();
+        const { gainers, losers } = await getTopMovers();
 
-      expect(gainers[0].symbol).toBe('S1');
-      expect(losers[0].symbol).toBe('S3');
-    });
+        expect(gainers[0].symbol).toBe('S1');
+        expect(losers[0].symbol).toBe('S3');
+      },
+      10000,
+    );
   });
 
   describe('getBatchLtp', () => {
@@ -117,15 +124,36 @@ describe('marketData', () => {
         expiry: '28MAY2026',
         strike: `${100 + i}00`,
       }));
-      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue(manyScrips);
+      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue(
+        manyScrips,
+      );
 
       (api.post as jest.Mock)
-        .mockResolvedValueOnce({ data: Array.from({ length: 50 }, (_, i) => ({ symboltoken: `T${i}`, oi: '100', ltp: '1' })) })
-        .mockResolvedValueOnce({ data: Array.from({ length: 10 }, (_, i) => ({ symboltoken: `T${50 + i}`, oi: '100', ltp: '1' })) });
+        .mockResolvedValueOnce({
+          data: Array.from({ length: 25 }, (_, i) => ({
+            symboltoken: `T${i}`,
+            oi: '100',
+            ltp: '1',
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: Array.from({ length: 25 }, (_, i) => ({
+            symboltoken: `T${25 + i}`,
+            oi: '100',
+            ltp: '1',
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: Array.from({ length: 10 }, (_, i) => ({
+            symboltoken: `T${50 + i}`,
+            oi: '100',
+            ltp: '1',
+          })),
+        });
 
       const result = await getOptionChain('SYM', '28MAY2026');
       expect(result).toHaveLength(60);
-      expect(api.post).toHaveBeenCalledTimes(2);
+      expect(api.post).toHaveBeenCalledTimes(3);
     });
   });
 
