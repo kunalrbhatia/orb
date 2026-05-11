@@ -17,6 +17,7 @@ export async function runMorningScanner(): Promise<void> {
     const watchList: WatchStock[] = [];
 
     for (const stock of gainers) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const chain = await getOptionChain(stock.symbol, expiry);
       const watchLevel = findResistance(chain, stock.ltp);
       watchList.push({
@@ -30,6 +31,7 @@ export async function runMorningScanner(): Promise<void> {
     }
 
     for (const stock of losers) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const chain = await getOptionChain(stock.symbol, expiry);
       const watchLevel = findSupport(chain, stock.ltp);
       watchList.push({
@@ -44,10 +46,21 @@ export async function runMorningScanner(): Promise<void> {
 
     tradeStore.setWatchList(watchList);
 
-    const summary = watchList
-      .map(s => `${s.symbol} (${s.side}): Watch @ ${s.watchLevel}`)
+    const gList = watchList
+      .filter(s => s.side === 'CALL')
+      .map(s => `<b>${s.symbol}</b>: <code>${s.watchLevel.toFixed(2)}</code>`)
       .join('\n');
-    await sendNotification(`Morning Scanner Complete. Watchlist:\n${summary}`);
+    const lList = watchList
+      .filter(s => s.side === 'PUT')
+      .map(s => `<b>${s.symbol}</b>: <code>${s.watchLevel.toFixed(2)}</code>`)
+      .join('\n');
+
+    const summary = `🚀 <b>Morning Scanner Complete</b>\n\n📈 <b>CALL Watchlist (Resistance):</b>\n${gList}\n\n📉 <b>PUT Watchlist (Support):</b>\n${lList}`;
+
+    logger.info(
+      `Morning Scanner Complete. Watchlist:\n${watchList.map(s => `${s.symbol} (@${s.watchLevel})`).join(', ')}`,
+    );
+    await sendNotification(summary);
     logger.info('Morning scanner complete');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

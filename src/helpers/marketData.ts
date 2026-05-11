@@ -1,6 +1,8 @@
 import { api } from './api.js';
 import { ANGEL_ONE_URLS, NIFTY_50_TOKENS } from './constants.js';
 import moment from 'moment-timezone';
+import { logger } from './logger.js';
+import { scripMasterStore } from '../store/scripMasterStore.js';
 
 export interface Stock {
   symbol: string;
@@ -16,6 +18,17 @@ export interface OptionStrike {
   ltp: number;
 }
 
+interface LtpData {
+  exchange: string;
+  tradingsymbol: string;
+  symboltoken: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  ltp: number;
+}
+
 export async function getLtp(
   symbol: string,
   symbolToken: string,
@@ -23,48 +36,57 @@ export async function getLtp(
 ): Promise<number> {
   const payload = {
     exchange,
+    tradingsymbol: symbol,
     symboltoken: symbolToken,
   };
-  const response = await api.post<{ data: { ltp: number } }>(
+  const response = await api.post<{ data: LtpData }>(
     ANGEL_ONE_URLS.LTP_DATA,
     payload,
   );
-  return response.data.ltp;
+  return response.data?.ltp || 0;
 }
 
 export async function getTopMovers(): Promise<{
   gainers: Stock[];
   losers: Stock[];
 }> {
-  const payload = {
-    exchange: 'NSE',
-    tokens: NIFTY_50_TOKENS,
-  };
-  interface MarketDataResponse {
-    data: {
-      ltp: string;
-      close: string;
-      tradingsymbol: string;
-      symboltoken: string;
-    }[];
-  }
-  const response = await api.post<MarketDataResponse>(
-    ANGEL_ONE_URLS.MARKET_DATA,
-    payload,
-  );
-  const data = response.data || [];
+  const scrips = scripMasterStore.getScrips();
+  const tokens = NIFTY_50_TOKENS;
+  const stocks: Stock[] = [];
 
-  const stocks: Stock[] = data.map(item => {
-    const ltp = parseFloat(item.ltp);
-    const close = parseFloat(item.close);
-    const changePercent = ((ltp - close) / close) * 100;
-    return {
-      symbol: item.tradingsymbol,
-      symbolToken: item.symboltoken,
-      ltp,
-      changePercent,
-    };
-  });
+  for (const token of tokens) {
+    try {
+      const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
+      if (!scrip) continue;
+      const payload = {
+        exchange: 'NSE',
+        tradingsymbol: scrip.symbol,
+        symboltoken: scrip.token,
+      };
+      const response = await api.post<{ data: LtpData }>(
+        ANGEL_ONE_URLS.LTP_DATA,
+        payload,
+      );
+      const item = response.data;
+      if (item) {
+        const ltp = item.ltp;
+        const close = item.close;
+        const changePercent = ((ltp - close) / close) * 100;
+        stocks.push({
+          symbol: scrip.symbol.replace('-EQ', ''),
+          symbolToken: scrip.token,
+          ltp,
+          changePercent,
+        });
+      }
+      // Rate limit: 3 requests per second
+      await new Promise(resolve => setTimeout(resolve, 350));
+    } catch (error) {
+      logger.error(
+        `Failed to fetch LTP for token ${token}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   const sorted = [...stocks].sort((a, b) => b.changePercent - a.changePercent);
 
@@ -78,25 +100,36 @@ export async function getBatchLtp(
   tokens: string[],
   exchange: string = 'NFO',
 ): Promise<Record<string, number>> {
-  const payload = {
-    exchange,
-    tokens,
-  };
-  interface BatchLtpResponse {
-    data: {
-      symboltoken: string;
-      ltp: string;
-    }[];
-  }
-  const response = await api.post<BatchLtpResponse>(
-    ANGEL_ONE_URLS.MARKET_DATA,
-    payload,
-  );
-  const data = response.data || [];
+  const scrips = scripMasterStore.getScrips();
   const result: Record<string, number> = {};
-  data.forEach(item => {
-    result[item.symboltoken] = parseFloat(item.ltp);
-  });
+
+  for (const token of tokens) {
+    try {
+      const scrip = scrips.find(
+        s => s.token === token && s.exch_seg === exchange,
+      );
+      if (!scrip) continue;
+      const payload = {
+        exchange,
+        tradingsymbol: scrip.symbol,
+        symboltoken: scrip.token,
+      };
+      const response = await api.post<{ data: LtpData }>(
+        ANGEL_ONE_URLS.LTP_DATA,
+        payload,
+      );
+      if (response.data) {
+        result[token] = response.data.ltp;
+      }
+      // Rate limit: 3 requests per second
+      await new Promise(resolve => setTimeout(resolve, 350));
+    } catch (error) {
+      logger.error(
+        `Failed to fetch LTP for token ${token}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   return result;
 }
 
@@ -139,5 +172,5 @@ export function getMonthlyExpiry(): string {
   }
 
   // Simplified: for demo/production you'd check holidayCheck.ts here too
-  return lastThursday.format('DDMMYYYY');
+  return lastThursday.format('DDMMMYYYY').toUpperCase();
 }

@@ -159,7 +159,10 @@ export async function enterTrade(
   });
 
   await sendNotification(
-    `${paperPrefix}🚀 Trade Entered: ${stock.symbol}\nBUY ${buyScrip.symbol} @ ${buyOption?.ltp}\nSELL ${hedgeScrip.symbol} @ ${hedgeOption.ltp}\nSL: ${initialSl}`,
+    `${paperPrefix}🚀 <b>Trade Entered: ${stock.symbol}</b>\n\n` +
+      `🟢 <b>BUY</b>: <code>${buyScrip.symbol}</code> @ <code>${buyOption?.ltp}</code>\n` +
+      `🔴 <b>SELL</b>: <code>${hedgeScrip.symbol}</code> @ <code>${hedgeOption.ltp}</code>\n` +
+      `🛡️ <b>SL</b>: <code>${initialSl.toFixed(2)}</code>`,
   );
 }
 
@@ -167,8 +170,8 @@ export async function exitTrade(reason: string): Promise<void> {
   const trade = tradeStore.getActiveTrade();
   if (!trade) return;
 
-  const paperPrefix = isPaperMode() ? '[PAPER] ' : '';
-  logger.info(`${paperPrefix}Exiting trade: ${reason}`);
+  const paperPrefix = isPaperMode() ? '<b>[PAPER]</b> ' : '';
+  logger.info(`${isPaperMode() ? '[PAPER] ' : ''}Exiting trade: ${reason}`);
 
   // 1. Cancel SL
   await cancelOrder(trade.slOrderId);
@@ -178,7 +181,8 @@ export async function exitTrade(reason: string): Promise<void> {
   // This is a simplified placeholder
 
   await sendNotification(
-    `${paperPrefix}🏁 Trade Exited: ${trade.symbol}\nReason: ${reason}`,
+    `${paperPrefix}🏁 <b>Trade Exited: ${trade.symbol}</b>\n` +
+      `📝 <b>Reason:</b> <code>${reason}</code>`,
   );
   tradeStore.setActiveTrade(null);
 }

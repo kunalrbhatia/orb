@@ -43,6 +43,8 @@ export async function runPriceMonitor(): Promise<void> {
           logger.info(`Breach reset for ${stock.symbol}`);
         }
       }
+      // Rate limit safety
+      await new Promise(resolve => setTimeout(resolve, 350));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error(`Price monitor failed for ${stock.symbol}: ${message}`);

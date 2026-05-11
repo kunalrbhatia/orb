@@ -7,7 +7,8 @@ export async function sendNotification(message: string): Promise<void> {
   try {
     await axios.post(url, {
       chat_id: config.telegramChatId,
-      text: `[ORB Algo] ${message}`,
+      text: `<b>[ORB Algo]</b>\n\n${message}`,
+      parse_mode: 'HTML',
     });
   } catch (error) {
     const messageStr = error instanceof Error ? error.message : String(error);

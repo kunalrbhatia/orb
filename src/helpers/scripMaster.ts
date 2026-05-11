@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SCRIP_MASTER_URL } from './constants.js';
+import { SCRIP_MASTER_URL, NIFTY_50_TOKENS } from './constants.js';
 import { scripMasterStore } from '../store/scripMasterStore.js';
 import { logger } from './logger.js';
 
@@ -19,13 +19,20 @@ export async function downloadScripMaster(): Promise<void> {
     }
     const allScrips = await axios.get<RawScrip[]>(SCRIP_MASTER_URL);
 
-    // Filter to NFO exchange, OPTSTK instrument type
-    const filteredScrips = allScrips.data.filter(
-      s => s.exch_seg === 'NFO' && s.instrumenttype === 'OPTSTK',
-    );
+    // Filter to NFO exchange (OPTSTK) and NSE exchange (for Nifty 50 stocks)
+    const filteredScrips = allScrips.data.filter(s => {
+      const isNfoOption = s.exch_seg === 'NFO' && s.instrumenttype === 'OPTSTK';
+      const isNseStock =
+        s.exch_seg === 'NSE' &&
+        s.symbol.endsWith('-EQ') &&
+        NIFTY_50_TOKENS.includes(s.token);
+      return isNfoOption || isNseStock;
+    });
 
     scripMasterStore.setScrips(filteredScrips);
-    logger.info(`Scrip master loaded: ${filteredScrips.length} options found`);
+    logger.info(
+      `Scrip master loaded: ${filteredScrips.length} instruments found`,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`Failed to download scrip master: ${message}`);

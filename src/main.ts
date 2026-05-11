@@ -9,6 +9,7 @@ import { startServer } from './server.js';
 import { logger } from './helpers/logger.js';
 import { sendNotification } from './notifier.js';
 import { startTelegramListener, isKilled } from './helpers/telegramListener.js';
+import moment from 'moment-timezone';
 
 async function bootstrap(): Promise<void> {
   logger.info('Starting ORB Algo...');
@@ -82,9 +83,24 @@ async function bootstrap(): Promise<void> {
     await downloadScripMaster();
 
     logger.info('ORB Algo initialized successfully');
-    void sendNotification(
-      'ORB Algo initialized successfully and is now waiting for 10:30 AM scan.',
-    );
+
+    // If started after 10:30 AM but before 3:30 PM, run scanner once
+    const now = moment().tz('Asia/Kolkata');
+    const scanTime = moment()
+      .tz('Asia/Kolkata')
+      .set({ hour: 10, minute: 30, second: 0 });
+    const marketClose = moment()
+      .tz('Asia/Kolkata')
+      .set({ hour: 15, minute: 30, second: 0 });
+
+    if (now.isAfter(scanTime) && now.isBefore(marketClose)) {
+      logger.info('Detected startup after 10:30 AM. Running scanner once...');
+      await runMorningScanner();
+    } else {
+      void sendNotification(
+        'ORB Algo initialized successfully and is now waiting for 10:30 AM scan.',
+      );
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`Bootstrap failed: ${message}`);
