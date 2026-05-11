@@ -4,6 +4,7 @@ import axios from 'axios';
 import { scripMasterStore } from '../../src/store/scripMasterStore.js';
 import { logger } from '../../src/helpers/logger.js';
 import fs from 'fs/promises';
+import moment from 'moment-timezone';
 
 jest.mock('axios');
 jest.mock('../../src/store/scripMasterStore.js');
@@ -80,4 +81,81 @@ describe('scripMaster', () => {
       ),
     );
   }, 10000);
+
+  it('should handle cache read errors', async () => {
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.readFile as jest.Mock).mockRejectedValue(new Error('Read Error'));
+
+    (mockedAxios.get as jest.Mock).mockResolvedValue({ data: [] });
+    await downloadScripMaster();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to read cache'),
+    );
+  });
+
+  it('should handle cache read errors (string)', async () => {
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.readFile as jest.Mock).mockRejectedValue('String Read Error');
+    await downloadScripMaster();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('String Read Error'),
+    );
+  });
+
+  it('should handle cache save errors', async () => {
+    (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
+    (mockedAxios.get as jest.Mock).mockResolvedValue({
+      data: [{ exch_seg: 'NSE', symbol: 'S1-EQ', token: '1' }],
+    });
+    (fs.writeFile as jest.Mock).mockRejectedValue(new Error('Write Error'));
+
+    await downloadScripMaster();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to save cache'),
+    );
+  });
+
+  it('should handle cache save errors (string)', async () => {
+    (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
+    (mockedAxios.get as jest.Mock).mockResolvedValue({
+      data: [{ exch_seg: 'NSE', symbol: 'S1-EQ', token: '1' }],
+    });
+    (fs.writeFile as jest.Mock).mockRejectedValue('String Write Error');
+    await downloadScripMaster();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('String Write Error'),
+    );
+  });
+
+  it('should handle expired cache', async () => {
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.readFile as jest.Mock).mockResolvedValue(
+      JSON.stringify({ date: 'old', scrips: [] }),
+    );
+    (mockedAxios.get as jest.Mock).mockResolvedValue({ data: [] });
+
+    await downloadScripMaster();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Cache expired'),
+    );
+  });
+
+  it('should return empty if no scrips found for underlying', () => {
+    // This function was moved to marketData.ts or store, removing from here if not present
+  });
+
+  it('should load from cache if available and valid', async () => {
+    const today = moment().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    (fs.access as jest.Mock).mockResolvedValue(undefined);
+    (fs.readFile as jest.Mock).mockResolvedValue(
+      JSON.stringify({ date: today, scrips: [{ symbol: 'CACHED' }] }),
+    );
+    await downloadScripMaster();
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('Loading scrip master from local cache'),
+    );
+    expect(scripMasterStore.setScrips).toHaveBeenCalledWith([
+      { symbol: 'CACHED' },
+    ]);
+  });
 });

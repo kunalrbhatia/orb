@@ -97,13 +97,110 @@ describe('morningScanner', () => {
     );
   });
 
-  it('should handle non-Error objects in catch block', async () => {
-    (marketData.getTopMovers as jest.Mock).mockRejectedValue('String Error');
+  it('should handle empty gainers and losers', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [],
+      losers: [],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
 
     await runMorningScanner();
 
+    expect(tradeStore.setWatchList).toHaveBeenCalledWith([]);
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.stringContaining('Scanner Complete'),
+      'MarkdownV2',
+    );
+  });
+
+  it('should handle cases with no candles available', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [{ symbol: 'S1', symbolToken: 'T1', ltp: 100, name: 'S1' }],
+      losers: [],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([]); // Empty candles
+    (marketData.getOptionChain as jest.Mock).mockResolvedValue([]);
+    (oiAnalyzer.findResistance as jest.Mock).mockReturnValue(110);
+
+    const promise = runMorningScanner();
+    jest.runAllTimers();
+    await promise;
+
+    expect(tradeStore.setWatchList).toHaveBeenCalledWith([
+      expect.objectContaining({
+        symbol: 'S1',
+        watchLevel: 110, // Uses OI resistance as candle high defaults to ltp
+      }),
+    ]);
+  });
+
+  it('should process losers and identify support levels', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [],
+      losers: [{ symbol: 'L1', symbolToken: 'T2', ltp: 100, name: 'L1' }],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([
+      { time: '1', open: 100, high: 105, low: 95, close: 102, volume: 100 },
+    ]);
+    (marketData.getOptionChain as jest.Mock).mockResolvedValue([
+      { strikePrice: 90, optionType: 'PE', openInterest: 1000, ltp: 1 },
+    ]);
+    (oiAnalyzer.findSupport as jest.Mock).mockReturnValue(90);
+
+    const promise = runMorningScanner();
+    jest.runAllTimers();
+    await promise;
+
+    expect(tradeStore.setWatchList).toHaveBeenCalledWith([
+      expect.objectContaining({
+        symbol: 'L1',
+        side: 'PUT',
+        watchLevel: 90,
+      }),
+    ]);
+  });
+
+  it('should handle non-Error objects in catch block', async () => {
+    (marketData.getTopMovers as jest.Mock).mockRejectedValue('String Error');
+    await runMorningScanner();
     expect(logger.error).toHaveBeenCalledWith(
       'Morning scanner failed: String Error',
     );
+  });
+
+  it('should handle cases with no PUTs or no CALLs in watchlist', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [{ symbol: 'G1', symbolToken: 'T1', ltp: 100, name: 'G1' }],
+      losers: [],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([]);
+    (oiAnalyzer.findResistance as jest.Mock).mockReturnValue(110);
+
+    await runMorningScanner();
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.stringContaining('📈 *CALL Watchlist'),
+      'MarkdownV2',
+    );
+  });
+
+  it('should handle losers with no candles', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [],
+      losers: [{ symbol: 'L1', symbolToken: 'T2', ltp: 100, name: 'L1' }],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([]);
+    (oiAnalyzer.findSupport as jest.Mock).mockReturnValue(90);
+
+    await runMorningScanner();
+    expect(tradeStore.setWatchList).toHaveBeenCalledWith([
+      expect.objectContaining({
+        symbol: 'L1',
+        watchLevel: 90,
+      }),
+    ]);
   });
 });

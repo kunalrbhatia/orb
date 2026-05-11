@@ -57,7 +57,8 @@ export async function getLtp(
 }
 
 interface AngelMarketDataItem {
-  symboltoken: string;
+  symbolToken?: string;
+  symboltoken?: string; // Fallback for inconsistent API casing
   ltp: string;
   close: string;
   oi?: string;
@@ -70,11 +71,69 @@ interface AngelMarketDataResponse {
   data: AngelMarketDataItem[];
 }
 
+/**
+ * Generic helper to fetch market data with a single retry on WAF/HTML rejection
+ */
+async function fetchMarketDataWithRetry(
+  payload: unknown,
+  batchLabel: string,
+): Promise<AngelMarketDataItem[]> {
+  let response: AngelMarketDataResponse | string | undefined;
+  let attempts = 0;
+
+  while (attempts < 2) {
+    try {
+      response = await api.post<AngelMarketDataResponse>(
+        ANGEL_ONE_URLS.MARKET_DATA,
+        payload,
+      );
+
+      if (
+        typeof response === 'string' &&
+        (response as string).includes('<html>')
+      ) {
+        logger.warn(
+          `${batchLabel} rejected (Attempt ${attempts + 1}). Retrying in 2s...`,
+        );
+        attempts++;
+        if (attempts < 2) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        continue;
+      }
+      break;
+    } catch (error) {
+      logger.error(
+        `API error for ${batchLabel} (Attempt ${attempts + 1}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      attempts++;
+      if (attempts < 2) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+
+  if (
+    !response ||
+    (typeof response === 'string' && response.includes('<html>'))
+  ) {
+    logger.error(
+      `${batchLabel} rejected again or failed after retries. Response snippet: ${typeof response === 'string' ? response.substring(0, 200) : 'Empty'}`,
+    );
+    return [];
+  }
+
+  return (response as AngelMarketDataResponse).data || [];
+}
+
 export async function getTopMovers(): Promise<{
   gainers: Stock[];
   losers: Stock[];
 }> {
   const scrips = scripMasterStore.getScrips();
+  if (scrips.length === 0) {
+    return { gainers: [], losers: [] };
+  }
   const tokens = NIFTY_50_TOKENS;
   const stocks: Stock[] = [];
 
@@ -87,53 +146,25 @@ export async function getTopMovers(): Promise<{
       },
     };
 
-    try {
-      const response = await api.post<AngelMarketDataResponse>(
-        ANGEL_ONE_URLS.MARKET_DATA,
-        payload,
-      );
+    const data = await fetchMarketDataWithRetry(
+      payload,
+      `Top movers batch ${i / 10 + 1}`,
+    );
+    processBatchData(data, scrips, stocks);
 
-      if (
-        typeof response === 'string' &&
-        (response as string).includes('<html>')
-      ) {
-        logger.warn(
-          `Top movers batch ${i / 10 + 1} rejected. Retrying in 2s...`,
-        );
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const retryResponse = await api.post<AngelMarketDataResponse>(
-          ANGEL_ONE_URLS.MARKET_DATA,
-          payload,
-        );
-        if (
-          typeof retryResponse === 'string' &&
-          (retryResponse as string).includes('<html>')
-        ) {
-          logger.error(
-            `Top movers batch ${i / 10 + 1} rejected again. Skipping.`,
-          );
-          continue;
-        }
-        const data = retryResponse.data || [];
-        processBatchData(data, scrips, stocks);
-      } else {
-        const data = response.data || [];
-        processBatchData(data, scrips, stocks);
-      }
-    } catch (error) {
-      logger.error(
-        `Failed to fetch top movers batch: ${error instanceof Error ? error.message : String(error)}`,
-      );
+    if (i + 10 < tokens.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   const sorted = [...stocks].sort((a, b) => b.changePercent - a.changePercent);
+  const gainers = sorted.filter(s => s.changePercent > 0).slice(0, 5);
+  const losers = sorted
+    .filter(s => s.changePercent < 0)
+    .sort((a, b) => a.changePercent - b.changePercent)
+    .slice(0, 5);
 
-  return {
-    gainers: sorted.slice(0, 5),
-    losers: sorted.slice(-5).reverse(),
-  };
+  return { gainers, losers };
 }
 
 function processBatchData(
@@ -142,7 +173,8 @@ function processBatchData(
   stocks: Stock[],
 ): void {
   data.forEach(item => {
-    const token = item.symboltoken;
+    const token = item.symbolToken || item.symboltoken;
+    if (!token) return;
     const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
     if (scrip) {
       const ltp = parseFloat(item.ltp || '0');
@@ -163,33 +195,32 @@ export async function getBatchLtp(
   tokens: string[],
   exchange: string = 'NFO',
 ): Promise<Record<string, number>> {
-  const scrips = scripMasterStore.getScrips();
+  if (tokens.length === 0) return {};
+
   const result: Record<string, number> = {};
 
-  for (const token of tokens) {
-    try {
-      const scrip = scrips.find(
-        s => s.token === token && s.exch_seg === exchange,
-      );
-      if (!scrip) continue;
-      const payload = {
-        exchange,
-        tradingsymbol: scrip.symbol,
-        symboltoken: scrip.token,
-      };
-      const response = await api.post<{ data: LtpData }>(
-        ANGEL_ONE_URLS.LTP_DATA,
-        payload,
-      );
-      if (response.data) {
-        result[token] = response.data.ltp;
+  for (let i = 0; i < tokens.length; i += 50) {
+    const batch = tokens.slice(i, i + 50);
+    const payload = {
+      mode: 'LTP',
+      exchangeTokens: {
+        [exchange]: batch,
+      },
+    };
+
+    const data = await fetchMarketDataWithRetry(
+      payload,
+      `Batch LTP ${exchange}`,
+    );
+    data.forEach(item => {
+      const token = item.symbolToken || item.symboltoken;
+      if (token) {
+        result[token] = parseFloat(item.ltp || '0');
       }
-      // Rate limit: 3 requests per second
-      await new Promise(resolve => setTimeout(resolve, 350));
-    } catch (error) {
-      logger.error(
-        `Failed to fetch LTP for token ${token}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+    });
+
+    if (i + 50 < tokens.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
@@ -218,50 +249,13 @@ export async function getOptionChain(
       },
     };
 
-    let response: AngelMarketDataResponse | string | undefined;
-    let attempts = 0;
-    while (attempts < 2) {
-      try {
-        response = await api.post<AngelMarketDataResponse>(
-          ANGEL_ONE_URLS.MARKET_DATA,
-          payload,
-        );
-
-        // Check if we got an HTML rejection page
-        if (
-          typeof response === 'string' &&
-          (response as string).includes('<html>')
-        ) {
-          logger.warn(
-            `Received HTML rejection for batch (Attempt ${attempts + 1}). Retrying in 2s...`,
-          );
-          attempts++;
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
-        }
-        break; // Success
-      } catch (error) {
-        logger.error(
-          `API error for batch (Attempt ${attempts + 1}): ${error instanceof Error ? error.message : String(error)}`,
-        );
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-
-    if (
-      !response ||
-      (typeof response === 'string' && response.includes('<html>'))
-    ) {
-      logger.error(
-        `Failed to get valid data for batch after retries: ${batch.join(',')}`,
-      );
-      continue;
-    }
-
-    const data = (response as AngelMarketDataResponse).data || [];
+    const data = await fetchMarketDataWithRetry(
+      payload,
+      `Option chain ${symbol}`,
+    );
     data.forEach(item => {
-      const scrip = scrips.find(s => s.token === item.symboltoken);
+      const token = item.symbolToken || item.symboltoken;
+      const scrip = scrips.find(s => s.token === token);
       if (scrip) {
         strikes.push({
           strikePrice: parseFloat(scrip.strike) / 100,
@@ -272,24 +266,23 @@ export async function getOptionChain(
       }
     });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (i + 25 < tokens.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   return strikes;
 }
 
 export function getMonthlyExpiry(): string {
-  // Stock options usually expire on the last Thursday, but some months differ.
-  // The scrip master shows 28MAY2026 as the last Thursday, but the actual expiry is 26MAY2026.
-  // We'll search for the last Tuesday (2) if Thursday (4) fails, or simply find the latest expiry in May.
   const now = moment().tz('Asia/Kolkata');
-  const year = now.year();
+  const monthName = now.format('MMM').toUpperCase();
+  const year = now.format('YYYY');
 
   const scrips = scripMasterStore.getScrips();
-  const monthName = now.format('MMM').toUpperCase();
 
   // Find all expiries for the current month
-  const expiries = [
+  const monthExpiries = [
     ...new Set(
       scrips
         .filter(
@@ -297,22 +290,49 @@ export function getMonthlyExpiry(): string {
             s.exch_seg === 'NFO' &&
             s.expiry &&
             s.expiry.includes(monthName) &&
-            s.expiry.endsWith(year.toString()),
+            s.expiry.includes(year),
         )
         .map(s => s.expiry),
     ),
   ].sort((a, b) => moment(a, 'DDMMMYYYY').diff(moment(b, 'DDMMMYYYY')));
 
-  // The monthly expiry is the last one in the month
-  if (expiries.length > 0) {
-    return expiries[expiries.length - 1];
+  if (monthExpiries.length > 0) {
+    const latest = monthExpiries[monthExpiries.length - 1];
+    // If today is past the latest expiry, look for next month
+    if (now.isAfter(moment(latest, 'DDMMMYYYY').endOf('day'))) {
+      const nextMonth = now.clone().add(1, 'month');
+      const nextMonthName = nextMonth.format('MMM').toUpperCase();
+      const nextYear = nextMonth.format('YYYY');
+      const nextExpiries = [
+        ...new Set(
+          scrips
+            .filter(
+              s =>
+                s.exch_seg === 'NFO' &&
+                s.expiry &&
+                s.expiry.includes(nextMonthName) &&
+                s.expiry.includes(nextYear),
+            )
+            .map(s => s.expiry),
+        ),
+      ].sort((a, b) => moment(a, 'DDMMMYYYY').diff(moment(b, 'DDMMMYYYY')));
+      return nextExpiries.length > 0
+        ? nextExpiries[nextExpiries.length - 1]
+        : '';
+    }
+    return latest;
   }
 
-  // Fallback to last Thursday calculation if scrip master is empty
-  const lastDayOfMonth = now.clone().endOf('month');
-  const lastThursday = lastDayOfMonth.clone();
+  // Fallback: Last Thursday calculation
+  let lastThursday = now.clone().endOf('month');
   while (lastThursday.day() !== 4) {
     lastThursday.subtract(1, 'day');
+  }
+  if (now.isAfter(lastThursday.endOf('day'))) {
+    lastThursday = now.clone().add(1, 'month').endOf('month');
+    while (lastThursday.day() !== 4) {
+      lastThursday.subtract(1, 'day');
+    }
   }
   return lastThursday.format('DDMMMYYYY').toUpperCase();
 }

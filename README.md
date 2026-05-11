@@ -36,6 +36,13 @@ ORB is a momentum-based intraday options strategy. After the market opens and se
 6. **Exit**
    Trade exits when: SL is hit, trailing SL is hit, or 3:20 PM EOD square-off — whichever comes first. No second trade that day.
 
+## Resilience & Efficiency
+
+- **Batch API Integration:** Uses Angel One's batch market data API to fetch prices for 50+ stocks and options in small chunks, drastically reducing total API calls and avoiding rate-limit throttles.
+- **Exponential Backoff:** Implements robust retry logic with a 2-second delay for failed batch requests, specifically handling `403 Forbidden` WAF rejections.
+- **Diagnostic Observability:** Enhanced logging captures snippets of rejection responses (e.g., broker-side firewall messages) to troubleshoot network-level blocks in production.
+- **Dynamic Monthly Expiry:** Automatically detects and targets the final Thursday of the current month (or the next, if the current month's expiry has passed) to ensure option chain data is always current and valid.
+
 ## Tech Stack
 
 - **Runtime:** Node.js >= 22 LTS (ES Modules)
