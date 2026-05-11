@@ -11,10 +11,11 @@ ORB is a momentum-based intraday options strategy. After the market opens and se
 1. **10:30 AM IST — Morning Scan**
    Fetch all 50 Nifty 50 stocks via Angel One API. Compute % change from previous close. Pick top 5 gainers and top 5 losers.
 
-2. **OI Level Identification**
-   For each of the 10 stocks, fetch the monthly options chain.
-   - Gainers → find the strike with maximum Call OI *above* spot price = Resistance
-   - Losers  → find the strike with maximum Put OI *below* spot price  = Support
+2. **Resistance and Support Identification**
+   For each of the 10 stocks, fetch the monthly options chain and the morning's candle data (from 9:15 AM to 10:30 AM).
+   - **Resistance (Gainers):** The higher of (Maximum Call OI strike above spot) and (Morning High).
+   - **Support (Losers):** The lower of (Maximum Put OI strike below spot) and (Morning Low).
+   This dual-check ensures we only enter trades when both price action and heavy OI levels are cleared.
 
 3. **Every 5 Minutes — Price Monitoring**
    Poll the spot price of all 10 stocks every 5 minutes. Wait for price to breach the identified level and *sustain* beyond it for 5 continuous minutes (not just a wick — actual price sustain).

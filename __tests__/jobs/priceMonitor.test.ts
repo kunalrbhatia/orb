@@ -11,17 +11,24 @@ jest.mock('../../src/helpers/orders.js');
 jest.mock('../../src/helpers/logger.js');
 
 describe('priceMonitor', () => {
-  const mockExpiry = '28052026';
+  const mockExpiry = '28MAY2026';
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-05-09T10:35:00Z'));
     (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue(mockExpiry);
+
+    // Mock setTimeout to resolve immediately
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('should return early if there is an active trade', async () => {
@@ -45,7 +52,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(tradeStore.updateWatchStock as jest.Mock).toHaveBeenCalledWith(
       'RELIANCE',
@@ -71,7 +80,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockResolvedValue(3440);
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(tradeStore.updateWatchStock as jest.Mock).toHaveBeenCalledWith(
       'TCS',
@@ -95,10 +106,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
 
-    // Current time is 10:35:00Z (set in beforeEach)
-    // Duration = (10:35 - 10:30) = 5 mins
-
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(logger.info).toHaveBeenCalledWith(
       expect.stringContaining('Confirmed breakout'),
@@ -120,7 +130,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(orders.enterTrade).not.toHaveBeenCalled();
   });
@@ -139,7 +151,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockResolvedValue(2540); // Below watch level
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(tradeStore.updateWatchStock).toHaveBeenCalledWith('RELIANCE', {
       breachStartTime: null,
@@ -163,7 +177,9 @@ describe('priceMonitor', () => {
       new Error('Network Error'),
     );
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining(
@@ -184,7 +200,9 @@ describe('priceMonitor', () => {
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
     (marketData.getLtp as jest.Mock).mockRejectedValue('String Error');
 
-    await runPriceMonitor();
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining(

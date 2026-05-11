@@ -3,11 +3,13 @@ export const ANGEL_ONE_URLS = {
   LOGIN: '/rest/auth/angelbroking/user/v1/loginByPassword',
   LTP_DATA: '/rest/secure/angelbroking/order/v1/getLtpData',
   MARKET_DATA: '/rest/secure/angelbroking/marketData/v1/getQuote',
+  BATCH_DATA: '/rest/secure/angelbroking/market/v1/batchData',
   OPTION_GREEK: '/rest/secure/angelbroking/marketData/v1/optionGreek',
   PLACE_ORDER: '/rest/secure/angelbroking/order/v1/placeOrder',
   MODIFY_ORDER: '/rest/secure/angelbroking/order/v1/modifyOrder',
   CANCEL_ORDER: '/rest/secure/angelbroking/order/v1/cancelOrder',
   ORDER_BOOK: '/rest/secure/angelbroking/order/v1/getOrderBook',
+  HISTORICAL_DATA: '/rest/secure/angelbroking/historical/v1/getCandleData',
 };
 
 export const SCRIP_MASTER_URL =
