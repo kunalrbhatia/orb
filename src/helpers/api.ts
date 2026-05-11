@@ -28,9 +28,9 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
     'X-UserType': 'USER',
-    'X-SourceID': 'SMARTAPI',
+    'X-SourceID': 'WEB',
     'X-PrivateKey': config.apiKey,
-    'X-ClientLocalIP': '192.168.1.1',
+    'X-ClientLocalIP': '127.0.0.1',
     'X-ClientPublicIP': publicIp,
     'X-MACAddress': '00-00-00-00-00-00',
     'User-Agent':

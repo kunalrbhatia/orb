@@ -255,6 +255,7 @@ export async function getOptionChain(
     );
     data.forEach(item => {
       const token = item.symbolToken || item.symboltoken;
+      if (!token) return;
       const scrip = scrips.find(s => s.token === token);
       if (scrip) {
         strikes.push({
