@@ -1,7 +1,7 @@
-import { login } from './src/helpers/login.js';
-import { downloadScripMaster } from './src/helpers/scripMaster.js';
-import { runMorningScanner } from './src/jobs/morningScanner.js';
-import { logger } from './src/helpers/logger.js';
+import { login } from './helpers/login.js';
+import { downloadScripMaster } from './helpers/scripMaster.js';
+import { runMorningScanner } from './jobs/morningScanner.js';
+import { logger } from './helpers/logger.js';
 import 'dotenv/config';
 
 async function start(): Promise<void> {
