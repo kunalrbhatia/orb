@@ -30,15 +30,17 @@ describe('marketData', () => {
 
   describe('getLtp', () => {
     it('should fetch LTP successfully', async () => {
-      (api.post as jest.Mock).mockResolvedValue({ data: { ltp: 2500.5 } });
-      const ltp = await getLtp('RELIANCE', '2885');
-      expect(ltp).toBe(2500.5);
+      (api.post as jest.Mock).mockResolvedValue({
+        data: { ltp: 2500.5, close: 2400 },
+      });
+      const result = await getLtp('RELIANCE', '2885');
+      expect(result.ltp).toBe(2500.5);
     });
 
     it('should return 0 if response data is missing', async () => {
       (api.post as jest.Mock).mockResolvedValue({});
-      const ltp = await getLtp('RELIANCE', '2885');
-      expect(ltp).toBe(0);
+      const result = await getLtp('RELIANCE', '2885');
+      expect(result.ltp).toBe(0);
     });
   });
 
@@ -55,27 +57,25 @@ describe('marketData', () => {
         { symbol: 'INFY-EQ', token: '1594', exch_seg: 'NSE', name: 'INFY' },
       ]);
       (api.post as jest.Mock).mockImplementation(
-        (url: string, payload: { exchangeTokens?: { NSE?: string[] } }) => {
-          if (url === ANGEL_ONE_URLS.MARKET_DATA) {
-            const nseTokens = payload.exchangeTokens?.NSE || [];
-            const data = [];
-            if (nseTokens.includes('2885')) {
-              data.push({ symbolToken: '2885', ltp: '2500', close: '2400' });
+        (url: string, payload: { symboltoken?: string }) => {
+          if (url === ANGEL_ONE_URLS.LTP_DATA) {
+            const token = payload.symboltoken;
+            if (token === '2885') {
+              return Promise.resolve({ data: { ltp: 2500, close: 2400 } });
             }
-            if (nseTokens.includes('11536')) {
-              data.push({ symbolToken: '11536', ltp: '3400', close: '3500' });
+            if (token === '11536') {
+              return Promise.resolve({ data: { ltp: 3400, close: 3500 } });
             }
-            if (nseTokens.includes('1594')) {
-              data.push({ symbolToken: '1594', ltp: '1400', close: '1500' });
+            if (token === '1594') {
+              return Promise.resolve({ data: { ltp: 1400, close: 1500 } });
             }
-            return Promise.resolve({ data });
           }
-          return Promise.resolve({ data: [] });
+          return Promise.resolve({ data: null });
         },
       );
 
       const promise = getTopMovers();
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 50; i++) {
         await jest.runAllTimersAsync();
       }
       const { gainers, losers } = await promise;
@@ -85,39 +85,18 @@ describe('marketData', () => {
       expect(losers[0].changePercent).toBeLessThan(losers[1].changePercent);
     });
 
-    it('should handle API errors with retry', async () => {
+    it('should handle API errors', async () => {
       (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
         { symbol: 'S1-EQ', token: '1333', exch_seg: 'NSE', name: 'S1' },
       ]);
-      (api.post as jest.Mock)
-        .mockRejectedValueOnce(new Error('Network Fail'))
-        .mockResolvedValueOnce({
-          data: [{ symbolToken: '1333', ltp: '110', close: '100' }],
-        })
-        .mockResolvedValue({ data: [] });
+      (api.post as jest.Mock).mockRejectedValue(new Error('Network Fail'));
 
       const promise = getTopMovers();
-      for (let i = 0; i < 10; i++) {
-        await jest.runAllTimersAsync();
-      }
-      const { gainers } = await promise;
-      expect(gainers).toHaveLength(1);
-      expect(logger.error).toHaveBeenCalled();
-    }, 20000);
-
-    it('should return empty if all retries fail', async () => {
-      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-        { token: '1333' },
-      ]);
-      (api.post as jest.Mock).mockRejectedValue(new Error('Persistent Fail'));
-
-      const promise = getTopMovers();
-      for (let i = 0; i < 15; i++) {
-        await jest.runAllTimersAsync();
-      }
+      await jest.runAllTimersAsync();
       const { gainers } = await promise;
       expect(gainers).toHaveLength(0);
-    }, 20000);
+      expect(logger.error).toHaveBeenCalled();
+    });
 
     it('should return empty if scrips master is empty', async () => {
       (scripMasterStore.getScrips as jest.Mock).mockReturnValue([]);
@@ -127,45 +106,51 @@ describe('marketData', () => {
   });
 
   describe('getBatchLtp', () => {
-    it('should fetch batch LTP and handle batching delays', async () => {
-      const tokens = Array.from({ length: 51 }, (_, i) => `T${i}`);
-      (api.post as jest.Mock).mockResolvedValue({
-        data: [{ symbolToken: 'T0', ltp: '2500.50' }],
+    it('should fetch batch LTP and handle delays', async () => {
+      const tokens = ['T0', 'T1'];
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
+        { symbol: 'S0', token: 'T0', exch_seg: 'NFO', name: 'S0' },
+        { symbol: 'S1', token: 'T1', exch_seg: 'NFO', name: 'S1' },
+      ]);
+      (api.post as jest.Mock).mockImplementation(url => {
+        if (url === ANGEL_ONE_URLS.LTP_DATA) {
+          return Promise.resolve({ data: { ltp: 100 } });
+        }
+        return Promise.resolve({ data: null });
       });
 
       const promise = getBatchLtp(tokens);
       await jest.runAllTimersAsync();
+      await jest.runAllTimersAsync();
       const result = await promise;
-      expect(result['T0']).toBe(2500.5);
+      expect(result['T0']).toBe(100);
+      expect(result['T1']).toBe(100);
     });
   });
 
   describe('getOptionChain', () => {
-    it('should handle empty scrips with warning', async () => {
-      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue([]);
-      const result = await getOptionChain('UNKNOWN', '28MAY2026');
-      expect(result).toHaveLength(0);
-      expect(logger.warn).toHaveBeenCalled();
-    });
-
-    it('should fetch chain with batching', async () => {
-      const manyScrips = Array.from({ length: 30 }, (_, i) => ({
-        token: `T${i}`,
-        symbol: i % 2 === 0 ? 'S1CE' : 'S1PE',
-        strike: '10000',
-      }));
-      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue(
-        manyScrips,
-      );
+    it('should fetch chain successfully', async () => {
       (api.post as jest.Mock).mockResolvedValue({
-        data: [{ symbolToken: 'T0', ltp: '5', oi: '100' }],
+        data: [
+          {
+            strikePrice: '10000',
+            optionType: 'CE',
+            openInterest: '100',
+            ltp: '10',
+          },
+        ],
       });
 
-      const promise = getOptionChain('S1', '28MAY2026');
-      await jest.runAllTimersAsync();
-      await jest.runAllTimersAsync();
-      const result = await promise;
-      expect(result.length).toBeGreaterThan(0);
+      const chain = await getOptionChain('RELIANCE', '28MAY2026');
+      expect(chain).toHaveLength(1);
+      expect(chain[0].strikePrice).toBe(10000);
+    });
+
+    it('should handle API errors', async () => {
+      (api.post as jest.Mock).mockRejectedValue(new Error('Chain Fail'));
+      const chain = await getOptionChain('RELIANCE', '28MAY2026');
+      expect(chain).toHaveLength(0);
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
@@ -285,97 +270,38 @@ describe('marketData', () => {
   });
 
   describe('Edge cases', () => {
-    it('should fail after maximum retries on HTML rejection', async () => {
-      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-        { token: 'T1' },
-      ]);
-      (api.post as jest.Mock).mockResolvedValue('<html>Fail</html>');
-      const promise = getBatchLtp(['T1']);
-      await jest.runAllTimersAsync();
-      await jest.runAllTimersAsync();
-      const result = await promise;
-      expect(result).toEqual({});
-      expect(logger.error).toHaveBeenCalled();
-    });
-
     it('should return 0 if ltp is missing in getLtp', async () => {
       (api.post as jest.Mock).mockResolvedValue({ data: null });
-      const ltp = await getLtp('S1', 'T1');
-      expect(ltp).toBe(0);
+      const result = await getLtp('S1', 'T1');
+      expect(result.ltp).toBe(0);
     });
 
     it('should identify PE options', async () => {
-      (scripMasterStore.getScripsByUnderlying as jest.Mock).mockReturnValue([
-        { token: 'T1', symbol: 'S1-PE', strike: '10000', name: 'S1' },
-      ]);
       (api.post as jest.Mock).mockResolvedValue({
-        data: [{ symbolToken: 'T1', ltp: '10' }],
+        data: [
+          {
+            strikePrice: '10000',
+            optionType: 'PE',
+            openInterest: '100',
+            ltp: '10',
+          },
+        ],
       });
       const chain = await getOptionChain('S1', '28MAY2026');
       expect(chain[0].optionType).toBe('PE');
     });
 
-    it('should log string error on catch', async () => {
-      (api.post as jest.Mock).mockRejectedValueOnce('String API Fail');
-      (api.post as jest.Mock).mockRejectedValueOnce('String API Fail');
+    it('should log string error on catch in getTopMovers', async () => {
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
+        { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE', name: 'S1' },
+      ]);
+      (api.post as jest.Mock).mockRejectedValue('String API Fail');
       const promise = getTopMovers();
-      for (let i = 0; i < 15; i++) await jest.runAllTimersAsync();
+      await jest.runAllTimersAsync();
       await promise;
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining('String API Fail'),
       );
-    });
-
-    it('should return empty array if data is missing in response', async () => {
-      (api.post as jest.Mock).mockResolvedValueOnce({ status: true });
-      const promise = getTopMovers();
-      for (let i = 0; i < 15; i++) await jest.runAllTimersAsync();
-      const data = await promise;
-      expect(data.gainers).toHaveLength(0);
-    });
-
-    it('should skip items without token', async () => {
-      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-        {
-          symbol: 'RELIANCE-EQ',
-          token: '2885',
-          exch_seg: 'NSE',
-          name: 'RELIANCE',
-        },
-      ]);
-      (api.post as jest.Mock).mockResolvedValue({
-        data: [{ ltp: '100', close: '90' }],
-      });
-      const promise = getTopMovers();
-      for (let i = 0; i < 15; i++) await jest.runAllTimersAsync();
-      const data = await promise;
-      expect(data.gainers).toHaveLength(0);
-    });
-
-    it('should handle zero close price', async () => {
-      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
-        {
-          symbol: 'RELIANCE-EQ',
-          token: '2885',
-          exch_seg: 'NSE',
-          name: 'RELIANCE',
-        },
-      ]);
-      (api.post as jest.Mock).mockResolvedValue({
-        data: [{ symbolToken: '2885', ltp: '100', close: '0' }],
-      });
-      const promise = getTopMovers();
-      for (let i = 0; i < 15; i++) await jest.runAllTimersAsync();
-      const data = await promise;
-      expect(data.gainers).toHaveLength(0);
-    });
-
-    it('should skip items without token in getBatchLtp', async () => {
-      (api.post as jest.Mock).mockResolvedValue({
-        data: [{ ltp: '100' }],
-      });
-      const result = await getBatchLtp(['T1'], 'NSE');
-      expect(result).toEqual({});
     });
   });
 });

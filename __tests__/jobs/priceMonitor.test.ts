@@ -50,7 +50,7 @@ describe('priceMonitor', () => {
     };
     (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(null);
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
-    (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 2560 });
 
     const promise = runPriceMonitor();
     jest.runAllTimers();
@@ -78,7 +78,7 @@ describe('priceMonitor', () => {
     };
     (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(null);
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
-    (marketData.getLtp as jest.Mock).mockResolvedValue(3440);
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 3440 });
 
     const promise = runPriceMonitor();
     jest.runAllTimers();
@@ -104,7 +104,7 @@ describe('priceMonitor', () => {
     };
     (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(null);
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
-    (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 2560 });
 
     const promise = runPriceMonitor();
     jest.runAllTimers();
@@ -128,7 +128,7 @@ describe('priceMonitor', () => {
     };
     (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(null);
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
-    (marketData.getLtp as jest.Mock).mockResolvedValue(2560);
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 2560 });
 
     const promise = runPriceMonitor();
     jest.runAllTimers();
@@ -149,7 +149,7 @@ describe('priceMonitor', () => {
     };
     (tradeStore.getActiveTrade as jest.Mock).mockReturnValue(null);
     (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
-    (marketData.getLtp as jest.Mock).mockResolvedValue(2540); // Below watch level
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 2540 }); // Below watch level
 
     const promise = runPriceMonitor();
     jest.runAllTimers();
