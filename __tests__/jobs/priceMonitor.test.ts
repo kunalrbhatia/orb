@@ -20,9 +20,9 @@ describe('priceMonitor', () => {
     (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue(mockExpiry);
 
     // Mock setTimeout to resolve immediately
-    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
-      cb();
-      return {} as any;
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: unknown) => {
+      (cb as () => void)();
+      return {} as unknown as NodeJS.Timeout;
     });
   });
 

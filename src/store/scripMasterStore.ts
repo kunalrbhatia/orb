@@ -1,3 +1,5 @@
+import { logger } from '../helpers/logger.js';
+
 export interface Scrip {
   token: string;
   symbol: string;
@@ -29,7 +31,7 @@ class ScripMasterStore {
     if (filtered.length === 0) {
         // Find what expiries ARE available for this name
         const available = [...new Set(this.scrips.filter(s => s.name.trim() === searchName).map(s => s.expiry))];
-        console.log(`Debug: No match for ${searchName} with expiry ${expiry}. Available for ${searchName}: ${available.join(', ')}`);
+        logger.info(`No match for ${searchName} with expiry ${expiry}. Available for ${searchName}: ${available.join(', ')}`);
     }
     return filtered;
   }

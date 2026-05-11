@@ -16,9 +16,11 @@ describe('scripMaster', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (fs.access as jest.Mock).mockRejectedValue(new Error('ENOENT'));
-    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
-      if (typeof cb === 'function') cb();
-      return {} as any;
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: unknown) => {
+      if (typeof cb === 'function') {
+        (cb as () => void)();
+      }
+      return {} as unknown as NodeJS.Timeout;
     });
   });
 

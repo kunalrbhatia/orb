@@ -30,7 +30,7 @@ export async function downloadScripMaster(
       .catch(() => false);
     if (cacheExists) {
       const rawData = await fs.readFile(CACHE_FILE, 'utf-8');
-      const cached: CachedData = JSON.parse(rawData);
+      const cached = JSON.parse(rawData) as CachedData;
       if (cached.date === today) {
         logger.info('Loading scrip master from local cache...');
         scripMasterStore.setScrips(cached.scrips);
