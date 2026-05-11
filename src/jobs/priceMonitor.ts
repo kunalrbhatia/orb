@@ -12,18 +12,16 @@ export async function runPriceMonitor(): Promise<void> {
 
   for (const stock of watchList) {
     try {
-      const currentLtp = await getLtp(stock.symbol, stock.symbolToken);
+      const { ltp } = await getLtp(stock.symbol, stock.symbolToken);
       const isBreached =
-        stock.side === 'CALL'
-          ? currentLtp > stock.watchLevel
-          : currentLtp < stock.watchLevel;
+        stock.side === 'CALL' ? ltp > stock.watchLevel : ltp < stock.watchLevel;
 
       if (isBreached) {
         if (!stock.breachStartTime) {
           tradeStore.updateWatchStock(stock.symbol, {
             breachStartTime: new Date(),
           });
-          logger.info(`Breach detected for ${stock.symbol} at ${currentLtp}`);
+          logger.info(`Breach detected for ${stock.symbol} at ${ltp}`);
         } else {
           const duration =
             (new Date().getTime() - stock.breachStartTime.getTime()) /

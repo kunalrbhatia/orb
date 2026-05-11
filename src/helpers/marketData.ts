@@ -2,7 +2,7 @@ import { api } from './api.js';
 import { ANGEL_ONE_URLS, NIFTY_50_TOKENS } from './constants.js';
 import moment from 'moment-timezone';
 import { logger } from './logger.js';
-import { scripMasterStore, Scrip } from '../store/scripMasterStore.js';
+import { scripMasterStore } from '../store/scripMasterStore.js';
 
 export interface Stock {
   symbol: string;
@@ -43,7 +43,7 @@ export async function getLtp(
   symbol: string,
   symbolToken: string,
   exchange: string = 'NSE',
-): Promise<number> {
+): Promise<{ ltp: number; close: number }> {
   const payload = {
     exchange,
     tradingsymbol: symbol,
@@ -53,77 +53,10 @@ export async function getLtp(
     ANGEL_ONE_URLS.LTP_DATA,
     payload,
   );
-  return response.data?.ltp || 0;
-}
-
-interface AngelMarketDataItem {
-  symbolToken?: string;
-  symboltoken?: string; // Fallback for inconsistent API casing
-  ltp: string;
-  close: string;
-  oi?: string;
-}
-
-interface AngelMarketDataResponse {
-  status: boolean;
-  message: string;
-  errorcode: string;
-  data: AngelMarketDataItem[];
-}
-
-/**
- * Generic helper to fetch market data with a single retry on WAF/HTML rejection
- */
-async function fetchMarketDataWithRetry(
-  payload: unknown,
-  batchLabel: string,
-): Promise<AngelMarketDataItem[]> {
-  let response: AngelMarketDataResponse | string | undefined;
-  let attempts = 0;
-
-  while (attempts < 2) {
-    try {
-      response = await api.post<AngelMarketDataResponse>(
-        ANGEL_ONE_URLS.MARKET_DATA,
-        payload,
-      );
-
-      if (
-        typeof response === 'string' &&
-        (response as string).includes('<html>')
-      ) {
-        logger.warn(
-          `${batchLabel} rejected (Attempt ${attempts + 1}). Retrying in 2s...`,
-        );
-        attempts++;
-        if (attempts < 2) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-        continue;
-      }
-      break;
-    } catch (error) {
-      logger.error(
-        `API error for ${batchLabel} (Attempt ${attempts + 1}): ${error instanceof Error ? error.message : String(error)}`,
-      );
-      attempts++;
-      if (attempts < 2) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-    }
-  }
-
-  if (
-    !response ||
-    (typeof response === 'string' && response.includes('<html>'))
-  ) {
-    logger.error(
-      `${batchLabel} rejected again or failed after retries. Response snippet: ${typeof response === 'string' ? response.substring(0, 200) : 'Empty'}`,
-    );
-    return [];
-  }
-
-  return (response as AngelMarketDataResponse).data || [];
+  return {
+    ltp: response.data?.ltp || 0,
+    close: response.data?.close || 0,
+  };
 }
 
 export async function getTopMovers(): Promise<{
@@ -137,23 +70,38 @@ export async function getTopMovers(): Promise<{
   const tokens = NIFTY_50_TOKENS;
   const stocks: Stock[] = [];
 
-  for (let i = 0; i < tokens.length; i += 10) {
-    const batch = tokens.slice(i, i + 10);
-    const payload = {
-      mode: 'FULL',
-      exchangeTokens: {
-        NSE: batch,
-      },
-    };
-
-    const data = await fetchMarketDataWithRetry(
-      payload,
-      `Top movers batch ${i / 10 + 1}`,
-    );
-    processBatchData(data, scrips, stocks);
-
-    if (i + 10 < tokens.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+  for (const token of tokens) {
+    try {
+      const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
+      if (!scrip) continue;
+      const payload = {
+        exchange: 'NSE',
+        tradingsymbol: scrip.symbol,
+        symboltoken: scrip.token,
+      };
+      const response = await api.post<{ data: LtpData }>(
+        ANGEL_ONE_URLS.LTP_DATA,
+        payload,
+      );
+      const item = response.data;
+      if (item) {
+        const ltp = item.ltp;
+        const close = item.close;
+        const changePercent = close !== 0 ? ((ltp - close) / close) * 100 : 0;
+        stocks.push({
+          symbol: scrip.symbol.replace('-EQ', ''),
+          symbolToken: scrip.token,
+          name: scrip.name,
+          ltp,
+          changePercent,
+        });
+      }
+      // Rate limit: 3 requests per second
+      await new Promise(resolve => setTimeout(resolve, 350));
+    } catch (error) {
+      logger.error(
+        `Failed to fetch LTP for token ${token}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -167,60 +115,38 @@ export async function getTopMovers(): Promise<{
   return { gainers, losers };
 }
 
-function processBatchData(
-  data: AngelMarketDataItem[],
-  scrips: Scrip[],
-  stocks: Stock[],
-): void {
-  data.forEach(item => {
-    const token = item.symbolToken || item.symboltoken;
-    if (!token) return;
-    const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
-    if (scrip) {
-      const ltp = parseFloat(item.ltp || '0');
-      const close = parseFloat(item.close || '0');
-      const changePercent = close !== 0 ? ((ltp - close) / close) * 100 : 0;
-      stocks.push({
-        symbol: scrip.symbol.replace('-EQ', ''),
-        symbolToken: scrip.token,
-        name: scrip.name,
-        ltp,
-        changePercent,
-      });
-    }
-  });
-}
-
 export async function getBatchLtp(
   tokens: string[],
   exchange: string = 'NFO',
 ): Promise<Record<string, number>> {
   if (tokens.length === 0) return {};
-
+  const scrips = scripMasterStore.getScrips();
   const result: Record<string, number> = {};
 
-  for (let i = 0; i < tokens.length; i += 50) {
-    const batch = tokens.slice(i, i + 50);
-    const payload = {
-      mode: 'LTP',
-      exchangeTokens: {
-        [exchange]: batch,
-      },
-    };
-
-    const data = await fetchMarketDataWithRetry(
-      payload,
-      `Batch LTP ${exchange}`,
-    );
-    data.forEach(item => {
-      const token = item.symbolToken || item.symboltoken;
-      if (token) {
-        result[token] = parseFloat(item.ltp || '0');
+  for (const token of tokens) {
+    try {
+      const scrip = scrips.find(
+        s => s.token === token && s.exch_seg === exchange,
+      );
+      if (!scrip) continue;
+      const payload = {
+        exchange,
+        tradingsymbol: scrip.symbol,
+        symboltoken: scrip.token,
+      };
+      const response = await api.post<{ data: LtpData }>(
+        ANGEL_ONE_URLS.LTP_DATA,
+        payload,
+      );
+      if (response.data) {
+        result[token] = response.data.ltp;
       }
-    });
-
-    if (i + 50 < tokens.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Rate limit: 3 requests per second
+      await new Promise(resolve => setTimeout(resolve, 350));
+    } catch (error) {
+      logger.error(
+        `Failed to fetch LTP for token ${token}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -231,48 +157,35 @@ export async function getOptionChain(
   symbol: string,
   expiryDate: string,
 ): Promise<OptionStrike[]> {
-  const scrips = scripMasterStore.getScripsByUnderlying(symbol, expiryDate);
-  if (scrips.length === 0) {
-    logger.warn(`No scrips found for ${symbol} with expiry ${expiryDate}`);
+  const payload = {
+    name: symbol,
+    expirydate: expiryDate,
+  };
+  interface OptionChainResponse {
+    data: {
+      strikePrice: string;
+      optionType: 'CE' | 'PE';
+      openInterest: string;
+      ltp: string;
+    }[];
+  }
+  try {
+    const response = await api.post<OptionChainResponse>(
+      ANGEL_ONE_URLS.OPTION_GREEK,
+      payload,
+    );
+    return (response.data || []).map(item => ({
+      strikePrice: parseFloat(item.strikePrice),
+      optionType: item.optionType,
+      openInterest: parseFloat(item.openInterest),
+      ltp: parseFloat(item.ltp),
+    }));
+  } catch (error) {
+    logger.error(
+      `Failed to fetch option chain for ${symbol}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return [];
   }
-
-  const tokens = scrips.map(s => s.token);
-  const strikes: OptionStrike[] = [];
-
-  for (let i = 0; i < tokens.length; i += 25) {
-    const batch = tokens.slice(i, i + 25);
-    const payload = {
-      mode: 'FULL',
-      exchangeTokens: {
-        NFO: batch,
-      },
-    };
-
-    const data = await fetchMarketDataWithRetry(
-      payload,
-      `Option chain ${symbol}`,
-    );
-    data.forEach(item => {
-      const token = item.symbolToken || item.symboltoken;
-      if (!token) return;
-      const scrip = scrips.find(s => s.token === token);
-      if (scrip) {
-        strikes.push({
-          strikePrice: parseFloat(scrip.strike) / 100,
-          optionType: scrip.symbol.endsWith('CE') ? 'CE' : 'PE',
-          openInterest: parseFloat(item.oi || '0'),
-          ltp: parseFloat(item.ltp || '0'),
-        });
-      }
-    });
-
-    if (i + 25 < tokens.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-  return strikes;
 }
 
 export function getMonthlyExpiry(): string {
