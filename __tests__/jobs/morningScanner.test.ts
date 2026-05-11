@@ -157,7 +157,49 @@ describe('morningScanner', () => {
       expect.objectContaining({
         symbol: 'L1',
         side: 'PUT',
-        watchLevel: 90, // min(90, 95)
+        watchLevel: 90,
+      }),
+    ]);
+  });
+
+  it('should handle non-Error objects in catch block', async () => {
+    (marketData.getTopMovers as jest.Mock).mockRejectedValue('String Error');
+    await runMorningScanner();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Morning scanner failed: String Error',
+    );
+  });
+
+  it('should handle cases with no PUTs or no CALLs in watchlist', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [{ symbol: 'G1', symbolToken: 'T1', ltp: 100, name: 'G1' }],
+      losers: [],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([]);
+    (oiAnalyzer.findResistance as jest.Mock).mockReturnValue(110);
+
+    await runMorningScanner();
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.stringContaining('📈 *CALL Watchlist'),
+      'MarkdownV2',
+    );
+  });
+
+  it('should handle losers with no candles', async () => {
+    (marketData.getTopMovers as jest.Mock).mockResolvedValue({
+      gainers: [],
+      losers: [{ symbol: 'L1', symbolToken: 'T2', ltp: 100, name: 'L1' }],
+    });
+    (marketData.getMonthlyExpiry as jest.Mock).mockReturnValue('28MAY2026');
+    (marketData.getMorningCandles as jest.Mock).mockResolvedValue([]);
+    (oiAnalyzer.findSupport as jest.Mock).mockReturnValue(90);
+
+    await runMorningScanner();
+    expect(tradeStore.setWatchList).toHaveBeenCalledWith([
+      expect.objectContaining({
+        symbol: 'L1',
+        watchLevel: 90,
       }),
     ]);
   });

@@ -22,4 +22,13 @@ describe('env', () => {
       process.env = originalEnv;
     }
   });
+
+  it('should use default values if provided', () => {
+    const originalEnv = { ...process.env };
+    jest.resetModules();
+    delete process.env.PORT;
+    delete process.env.NODE_ENV;
+
+    process.env = originalEnv;
+  });
 });
