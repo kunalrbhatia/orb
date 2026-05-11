@@ -15,6 +15,9 @@ export async function runMorningScanner(): Promise<void> {
   logger.info('Running morning scanner...');
   try {
     const { gainers, losers } = await getTopMovers();
+    logger.info(
+      `Scanner found ${gainers.length} gainers and ${losers.length} losers`,
+    );
     const expiry = getMonthlyExpiry();
     const watchList: WatchStock[] = [];
 

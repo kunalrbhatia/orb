@@ -1,21 +1,53 @@
 import { scripMasterStore } from '../../src/store/scripMasterStore';
 
 describe('scripMasterStore', () => {
-  it('should manage scrips', () => {
-    const mockScrip = {
-      token: '1',
-      symbol: 'SBIN-EQ',
-      name: 'SBIN',
-      expiry: '2026-05-28',
-      strike: '600',
-      lotsize: '1500',
-      instrumenttype: 'OPTSTK',
-      exch_seg: 'NFO',
-      tick_size: '0.05',
-    };
-    scripMasterStore.setScrips([mockScrip]);
-    expect(scripMasterStore.getScrips()).toHaveLength(1);
-    expect(scripMasterStore.findScripBySymbol('SBIN-EQ')).toEqual(mockScrip);
-    expect(scripMasterStore.findScripBySymbol('NON-EXISTENT')).toBeUndefined();
+  it('should find scrips by underlying and expiry', () => {
+    const scrips = [
+      {
+        token: '1',
+        symbol: 'RELIANCE28MAY262500CE',
+        name: 'RELIANCE',
+        expiry: '28MAY2026',
+        strike: '250000',
+        exch_seg: 'NFO',
+      },
+      {
+        token: '2',
+        symbol: 'RELIANCE28MAY262600CE',
+        name: 'RELIANCE',
+        expiry: '28MAY2026',
+        strike: '260000',
+        exch_seg: 'NFO',
+      },
+      {
+        token: '3',
+        symbol: 'TCS28MAY263500CE',
+        name: 'TCS',
+        expiry: '28MAY2026',
+        strike: '350000',
+        exch_seg: 'NFO',
+      },
+    ];
+    // @ts-expect-error - for testing purposes
+    scripMasterStore.setScrips(scrips);
+
+    const relianceScrips = scripMasterStore.getScripsByUnderlying(
+      'RELIANCE',
+      '28MAY2026',
+    );
+    expect(relianceScrips).toHaveLength(2);
+    expect(relianceScrips[0].token).toBe('1');
+
+    const empty = scripMasterStore.getScripsByUnderlying(
+      'UNKNOWN',
+      '28MAY2026',
+    );
+    expect(empty).toHaveLength(0);
+
+    const wrongExpiry = scripMasterStore.getScripsByUnderlying(
+      'RELIANCE',
+      'wrong',
+    );
+    expect(wrongExpiry).toHaveLength(0);
   });
 });

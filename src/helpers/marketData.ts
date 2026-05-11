@@ -57,7 +57,8 @@ export async function getLtp(
 }
 
 interface AngelMarketDataItem {
-  symboltoken: string;
+  symbolToken?: string;
+  symboltoken?: string; // Fallback for inconsistent API casing
   ltp: string;
   close: string;
   oi?: string;
@@ -110,7 +111,7 @@ export async function getTopMovers(): Promise<{
           (retryResponse as string).includes('<html>')
         ) {
           logger.error(
-            `Top movers batch ${i / 10 + 1} rejected again. Skipping.`,
+            `Top movers batch ${i / 10 + 1} rejected again. Response snippet: ${(retryResponse as string).substring(0, 200)}`,
           );
           continue;
         }
@@ -142,7 +143,8 @@ function processBatchData(
   stocks: Stock[],
 ): void {
   data.forEach(item => {
-    const token = item.symboltoken;
+    const token = item.symbolToken || item.symboltoken;
+    if (!token) return;
     const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
     if (scrip) {
       const ltp = parseFloat(item.ltp || '0');
@@ -254,14 +256,15 @@ export async function getOptionChain(
       (typeof response === 'string' && response.includes('<html>'))
     ) {
       logger.error(
-        `Failed to get valid data for batch after retries: ${batch.join(',')}`,
+        `Failed to get valid data for batch after retries: ${batch.join(',')}. Response: ${typeof response === 'string' ? response.substring(0, 200) : 'Empty'}`,
       );
       continue;
     }
 
     const data = (response as AngelMarketDataResponse).data || [];
     data.forEach(item => {
-      const scrip = scrips.find(s => s.token === item.symboltoken);
+      const token = item.symbolToken || item.symboltoken;
+      const scrip = scrips.find(s => s.token === token);
       if (scrip) {
         strikes.push({
           strikePrice: parseFloat(scrip.strike) / 100,
