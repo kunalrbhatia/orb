@@ -26,10 +26,13 @@ export async function runMorningScanner(): Promise<void> {
     const watchList: WatchStock[] = [];
 
     for (const stock of gainers) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delay between stocks to respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const chain = await getOptionChain(stock.name, expiry);
       const oiResistance = findResistance(chain, stock.ltp);
 
+      await new Promise(resolve => setTimeout(resolve, 500));
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
         morningCandles.length > 0
@@ -40,6 +43,7 @@ export async function runMorningScanner(): Promise<void> {
         : stock.ltp;
 
       // Historical Analysis (90 Days)
+      await new Promise(resolve => setTimeout(resolve, 500));
       const histCandles = await getHistoricalData(
         stock.symbolToken,
         'NSE',
@@ -74,10 +78,13 @@ export async function runMorningScanner(): Promise<void> {
     }
 
     for (const stock of losers) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delay between stocks to respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const chain = await getOptionChain(stock.name, expiry);
       const oiSupport = findSupport(chain, stock.ltp);
 
+      await new Promise(resolve => setTimeout(resolve, 500));
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
         morningCandles.length > 0
@@ -86,6 +93,7 @@ export async function runMorningScanner(): Promise<void> {
       const candleSupport = morningLevels ? morningLevels.support : stock.ltp;
 
       // Historical Analysis (90 Days)
+      await new Promise(resolve => setTimeout(resolve, 500));
       const histCandles = await getHistoricalData(
         stock.symbolToken,
         'NSE',
