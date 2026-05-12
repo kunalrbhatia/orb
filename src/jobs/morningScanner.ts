@@ -3,9 +3,13 @@ import {
   getOptionChain,
   getMonthlyExpiry,
   getMorningCandles,
+  getHistoricalData,
 } from '../helpers/marketData.js';
 import { findResistance, findSupport } from '../helpers/oiAnalyzer.js';
-import { findLevelsFromCandles } from '../helpers/candleAnalyzer.js';
+import {
+  findLevelsFromCandles,
+  findHistoricalLevels,
+} from '../helpers/candleAnalyzer.js';
 import { tradeStore } from '../store/tradeStore.js';
 import { WatchStock } from '../store/tradeStore.js';
 import { logger } from '../helpers/logger.js';
@@ -22,19 +26,26 @@ export async function runMorningScanner(): Promise<void> {
     const watchList: WatchStock[] = [];
 
     for (const stock of gainers) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       const chain = await getOptionChain(stock.name, expiry);
       const oiResistance = findResistance(chain, stock.ltp);
 
-      const candles = await getMorningCandles(stock.symbolToken);
-      const candleLevels =
-        candles.length > 0 ? findLevelsFromCandles(candles) : null;
-      const candleResistance = candleLevels
-        ? candleLevels.resistance
+      const morningCandles = await getMorningCandles(stock.symbolToken);
+      const morningLevels =
+        morningCandles.length > 0 ? findLevelsFromCandles(morningCandles) : null;
+      const candleResistance = morningLevels
+        ? morningLevels.resistance
         : stock.ltp;
 
-      // Use the higher of OI resistance and candle high for a more conservative breakout level
-      const watchLevel = Math.max(oiResistance, candleResistance);
+      // Historical Analysis (90 Days)
+      const histCandles = await getHistoricalData(stock.symbolToken, 'NSE', 'ONE_DAY', 90);
+      const histLevels = findHistoricalLevels(histCandles);
+      const nearestHistResistance = histLevels.resistance
+        .filter(r => r.price > stock.ltp)
+        .sort((a, b) => a.price - b.price)[0]?.price || stock.ltp;
+
+      // Use the higher of OI, morning candle high, and historical resistance
+      const watchLevel = Math.max(oiResistance, candleResistance, nearestHistResistance);
 
       watchList.push({
         symbol: stock.symbol,
@@ -46,22 +57,29 @@ export async function runMorningScanner(): Promise<void> {
       });
 
       logger.info(
-        `[${stock.symbol}] OI Resistance: ${oiResistance}, Candle High: ${candleResistance}, Final WatchLevel: ${watchLevel}`,
+        `[${stock.symbol}] OI Res: ${oiResistance}, Candle High: ${candleResistance}, Hist Res: ${nearestHistResistance}, Final: ${watchLevel}`,
       );
     }
 
     for (const stock of losers) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       const chain = await getOptionChain(stock.name, expiry);
       const oiSupport = findSupport(chain, stock.ltp);
 
-      const candles = await getMorningCandles(stock.symbolToken);
-      const candleLevels =
-        candles.length > 0 ? findLevelsFromCandles(candles) : null;
-      const candleSupport = candleLevels ? candleLevels.support : stock.ltp;
+      const morningCandles = await getMorningCandles(stock.symbolToken);
+      const morningLevels =
+        morningCandles.length > 0 ? findLevelsFromCandles(morningCandles) : null;
+      const candleSupport = morningLevels ? morningLevels.support : stock.ltp;
 
-      // Use the lower of OI support and candle low for a more conservative breakdown level
-      const watchLevel = Math.min(oiSupport, candleSupport);
+      // Historical Analysis (90 Days)
+      const histCandles = await getHistoricalData(stock.symbolToken, 'NSE', 'ONE_DAY', 90);
+      const histLevels = findHistoricalLevels(histCandles);
+      const nearestHistSupport = histLevels.support
+        .filter(s => s.price < stock.ltp)
+        .sort((a, b) => b.price - a.price)[0]?.price || stock.ltp;
+
+      // Use the lower of OI, morning candle low, and historical support
+      const watchLevel = Math.min(oiSupport, candleSupport, nearestHistSupport);
 
       watchList.push({
         symbol: stock.symbol,
@@ -73,7 +91,7 @@ export async function runMorningScanner(): Promise<void> {
       });
 
       logger.info(
-        `[${stock.symbol}] OI Support: ${oiSupport}, Candle Low: ${candleSupport}, Final WatchLevel: ${watchLevel}`,
+        `[${stock.symbol}] OI Sup: ${oiSupport}, Candle Low: ${candleSupport}, Hist Sup: ${nearestHistSupport}, Final: ${watchLevel}`,
       );
     }
 
