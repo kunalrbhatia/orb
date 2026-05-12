@@ -32,20 +32,32 @@ export async function runMorningScanner(): Promise<void> {
 
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
-        morningCandles.length > 0 ? findLevelsFromCandles(morningCandles) : null;
+        morningCandles.length > 0
+          ? findLevelsFromCandles(morningCandles)
+          : null;
       const candleResistance = morningLevels
         ? morningLevels.resistance
         : stock.ltp;
 
       // Historical Analysis (90 Days)
-      const histCandles = await getHistoricalData(stock.symbolToken, 'NSE', 'ONE_DAY', 90);
+      const histCandles = await getHistoricalData(
+        stock.symbolToken,
+        'NSE',
+        'ONE_DAY',
+        90,
+      );
       const histLevels = findHistoricalLevels(histCandles);
-      const nearestHistResistance = histLevels.resistance
-        .filter(r => r.price > stock.ltp)
-        .sort((a, b) => a.price - b.price)[0]?.price || stock.ltp;
+      const nearestHistResistance =
+        histLevels.resistance
+          .filter(r => r.price > stock.ltp)
+          .sort((a, b) => a.price - b.price)[0]?.price || stock.ltp;
 
       // Use the higher of OI, morning candle high, and historical resistance
-      const watchLevel = Math.max(oiResistance, candleResistance, nearestHistResistance);
+      const watchLevel = Math.max(
+        oiResistance,
+        candleResistance,
+        nearestHistResistance,
+      );
 
       watchList.push({
         symbol: stock.symbol,
@@ -68,15 +80,23 @@ export async function runMorningScanner(): Promise<void> {
 
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
-        morningCandles.length > 0 ? findLevelsFromCandles(morningCandles) : null;
+        morningCandles.length > 0
+          ? findLevelsFromCandles(morningCandles)
+          : null;
       const candleSupport = morningLevels ? morningLevels.support : stock.ltp;
 
       // Historical Analysis (90 Days)
-      const histCandles = await getHistoricalData(stock.symbolToken, 'NSE', 'ONE_DAY', 90);
+      const histCandles = await getHistoricalData(
+        stock.symbolToken,
+        'NSE',
+        'ONE_DAY',
+        90,
+      );
       const histLevels = findHistoricalLevels(histCandles);
-      const nearestHistSupport = histLevels.support
-        .filter(s => s.price < stock.ltp)
-        .sort((a, b) => b.price - a.price)[0]?.price || stock.ltp;
+      const nearestHistSupport =
+        histLevels.support
+          .filter(s => s.price < stock.ltp)
+          .sort((a, b) => b.price - a.price)[0]?.price || stock.ltp;
 
       // Use the lower of OI, morning candle low, and historical support
       const watchLevel = Math.min(oiSupport, candleSupport, nearestHistSupport);

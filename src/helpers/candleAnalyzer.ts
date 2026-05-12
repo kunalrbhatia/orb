@@ -100,7 +100,9 @@ function addOrUpdateLevel(
   volume: number,
   sensitivity: number,
 ): void {
-  const existing = levels.find(l => Math.abs(l.price - price) / price < sensitivity);
+  const existing = levels.find(
+    l => Math.abs(l.price - price) / price < sensitivity,
+  );
   if (existing) {
     existing.strength++;
     existing.volume = Math.max(existing.volume, volume);
