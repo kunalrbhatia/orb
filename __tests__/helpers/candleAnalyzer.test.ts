@@ -1,6 +1,7 @@
 import {
   findLevelsFromCandles,
   calculatePivotPoints,
+  findHistoricalLevels,
 } from '../../src/helpers/candleAnalyzer.js';
 import { Candle } from '../../src/helpers/marketData.js';
 
@@ -47,17 +48,64 @@ describe('candleAnalyzer', () => {
       // S1 = 2 * P - H = 2 * 101.666 - 110 = 203.333 - 110 = 93.333...
       expect(pivots.s1).toBeCloseTo(93.33333333333334);
 
-      // R2 = P + (H - L) = 101.666 + 20 = 121.666...
+      // R2 = P + (H - l) = 101.666 + 20 = 121.666...
       expect(pivots.r2).toBeCloseTo(121.66666666666667);
 
-      // S2 = P - (H - L) = 101.666 - 20 = 81.666...
+      // S2 = P - (H - l) = 101.666 - 20 = 81.666...
       expect(pivots.s2).toBeCloseTo(81.66666666666667);
 
-      // R3 = H + 2 * (P - L) = 110 + 2 * (101.666 - 90) = 110 + 23.333 = 133.333...
+      // R3 = H + 2 * (P - l) = 110 + 2 * (101.666 - 90) = 110 + 23.333 = 133.333...
       expect(pivots.r3).toBeCloseTo(133.33333333333334);
 
-      // S3 = L - 2 * (H - P) = 90 - 2 * (110 - 101.666) = 90 - 2 * 8.333 = 90 - 16.666 = 73.333...
+      // S3 = L - 2 * (h - p) = 90 - 2 * (110 - 101.666) = 90 - 2 * 8.333 = 90 - 16.666 = 73.333...
       expect(pivots.s3).toBeCloseTo(73.33333333333334);
+    });
+  });
+
+  describe('findHistoricalLevels', () => {
+    it('should identify swing highs and lows (Fractal-3)', () => {
+      const candles: Candle[] = [
+        { time: '1', open: 100, high: 100, low: 100, close: 100, volume: 1000 },
+        { time: '2', open: 110, high: 120, low: 90, close: 110, volume: 2000 }, // Swing point
+        { time: '3', open: 100, high: 100, low: 100, close: 100, volume: 1000 },
+      ];
+
+      const levels = findHistoricalLevels(candles);
+      expect(levels.resistance).toHaveLength(1);
+      expect(levels.resistance[0].price).toBe(120);
+      expect(levels.support).toHaveLength(1);
+      expect(levels.support[0].price).toBe(90);
+    });
+
+    it('should group nearby levels within sensitivity', () => {
+      const candles: Candle[] = [
+        { time: '1', open: 100, high: 100, low: 100, close: 100, volume: 1000 },
+        { time: '2', open: 110, high: 120, low: 100, close: 110, volume: 2000 }, // Peak 1
+        { time: '3', open: 100, high: 100, low: 100, close: 100, volume: 1000 },
+        { time: '4', open: 110, high: 121, low: 100, close: 110, volume: 3000 }, // Peak 2 (nearby)
+        { time: '5', open: 100, high: 100, low: 100, close: 100, volume: 1000 },
+      ];
+
+      const levels = findHistoricalLevels(candles);
+      expect(levels.resistance).toHaveLength(1);
+      expect(levels.resistance[0].strength).toBe(2);
+      expect(levels.resistance[0].volume).toBe(3000);
+    });
+
+    it('should return top 5 levels sorted by strength', () => {
+      const candles: Candle[] = [];
+      for (let i = 0; i < 20; i++) {
+        candles.push({
+          time: String(i),
+          open: 100,
+          high: i % 2 === 0 ? 100 : 150 + i,
+          low: 100,
+          close: 100,
+          volume: 1000,
+        });
+      }
+      const levels = findHistoricalLevels(candles);
+      expect(levels.resistance.length).toBeLessThanOrEqual(5);
     });
   });
 });

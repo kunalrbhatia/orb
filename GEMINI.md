@@ -85,6 +85,7 @@ Always review `GEMINI.md` (and specifically the **Project Conventions** below) b
 
 ### Project Conventions
 
+- Sanity Checks: Always run `pnpm lint ; pnpm format ; pnpm typecheck ; pnpm build ; pnpm test --coverage` before committing or creating a Pull Request.
 - PowerShell Syntax: Since we are on Windows PowerShell, always use `;` as a statement separator instead of `&&`.
 - PowerShell Searching: `grep` is not available. Use `Select-String -Pattern "pattern" -Path file` for searching within files.
 - Language: TypeScript strict mode, ES modules (import/export — never require())

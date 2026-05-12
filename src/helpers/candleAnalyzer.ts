@@ -51,3 +51,62 @@ export function calculatePivotPoints(candle: Candle): {
 
   return { p, r1, s1, r2, s2, r3, s3 };
 }
+
+export interface SRLevel {
+  price: number;
+  strength: number;
+  volume: number;
+}
+
+/**
+ * Identifies significant Support and Resistance levels from daily historical data.
+ * Uses a 1-day swing window (Fractal-3) for sensitivity.
+ */
+export function findHistoricalLevels(candles: Candle[]): {
+  resistance: SRLevel[];
+  support: SRLevel[];
+} {
+  const resistance: SRLevel[] = [];
+  const support: SRLevel[] = [];
+  const sensitivity = 0.015; // 1.5% range to group nearby levels
+
+  for (let i = 1; i < candles.length - 1; i++) {
+    const prev = candles[i - 1];
+    const curr = candles[i];
+    const next = candles[i + 1];
+
+    if (curr.high > prev.high && curr.high > next.high) {
+      addOrUpdateLevel(resistance, curr.high, curr.volume, sensitivity);
+    }
+
+    if (curr.low < prev.low && curr.low < next.low) {
+      addOrUpdateLevel(support, curr.low, curr.volume, sensitivity);
+    }
+  }
+
+  return {
+    resistance: resistance
+      .sort((a, b) => b.strength - a.strength || b.price - a.price)
+      .slice(0, 5),
+    support: support
+      .sort((a, b) => b.strength - a.strength || a.price - b.price)
+      .slice(0, 5),
+  };
+}
+
+function addOrUpdateLevel(
+  levels: SRLevel[],
+  price: number,
+  volume: number,
+  sensitivity: number,
+): void {
+  const existing = levels.find(
+    l => Math.abs(l.price - price) / price < sensitivity,
+  );
+  if (existing) {
+    existing.strength++;
+    existing.volume = Math.max(existing.volume, volume);
+  } else {
+    levels.push({ price, strength: 1, volume });
+  }
+}
