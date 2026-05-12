@@ -99,7 +99,7 @@ function addOrUpdateLevel(
   price: number,
   volume: number,
   sensitivity: number,
-) {
+): void {
   const existing = levels.find(l => Math.abs(l.price - price) / price < sensitivity);
   if (existing) {
     existing.strength++;

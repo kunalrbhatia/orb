@@ -4,16 +4,20 @@ import * as marketData from '../../src/helpers/marketData.js';
 import * as oiAnalyzer from '../../src/helpers/oiAnalyzer.js';
 import * as candleAnalyzer from '../../src/helpers/candleAnalyzer.js';
 import { tradeStore } from '../../src/store/tradeStore.js';
-import { sendNotification } from '../../src/notifier.js';
 import { logger } from '../../src/helpers/logger.js';
 
 jest.mock('../../src/helpers/marketData.js');
 jest.mock('../../src/helpers/oiAnalyzer.js');
-jest.mock('../../src/helpers/candleAnalyzer.js', () => ({
-  ...jest.requireActual('../../src/helpers/candleAnalyzer.js'),
-  findLevelsFromCandles: jest.fn(),
-  findHistoricalLevels: jest.fn(),
-}));
+jest.mock('../../src/helpers/candleAnalyzer.js', () => {
+  /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment */
+  const actual = jest.requireActual('../../src/helpers/candleAnalyzer.js');
+  return {
+    ...actual,
+    findLevelsFromCandles: jest.fn(),
+    findHistoricalLevels: jest.fn(),
+  };
+  /* eslint-enable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment */
+});
 jest.mock('../../src/store/tradeStore.js');
 jest.mock('../../src/notifier.js');
 jest.mock('../../src/helpers/logger.js');
