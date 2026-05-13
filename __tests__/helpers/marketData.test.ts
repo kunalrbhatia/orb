@@ -98,6 +98,28 @@ describe('marketData', () => {
       expect(logger.error).toHaveBeenCalled();
     });
 
+    it('should handle token not found in scrip master', async () => {
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([]);
+      const promise = getTopMovers();
+      await jest.runAllTimersAsync();
+      const { gainers } = await promise;
+      expect(gainers).toHaveLength(0);
+    });
+
+    it('should skip invalid LTP in getTopMovers', async () => {
+      (scripMasterStore.getScrips as jest.Mock).mockReturnValue([
+        { symbol: 'S1-EQ', token: '25', exch_seg: 'NSE', name: 'S1' },
+      ]);
+      (api.post as jest.Mock).mockResolvedValue({ data: { ltp: 0 } });
+      const promise = getTopMovers();
+      await jest.runAllTimersAsync();
+      const { gainers } = await promise;
+      expect(gainers).toHaveLength(0);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Received invalid LTP for S1-EQ: 0'),
+      );
+    });
+
     it('should return empty if scrips master is empty', async () => {
       (scripMasterStore.getScrips as jest.Mock).mockReturnValue([]);
       const { gainers } = await getTopMovers();

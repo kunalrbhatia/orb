@@ -210,4 +210,26 @@ describe('priceMonitor', () => {
       ),
     );
   });
+
+  it('should skip if LTP is 0 or less', async () => {
+    const mockStock: WatchStock = {
+      symbol: 'RELIANCE',
+      symbolToken: '2885',
+      ltp: 2500,
+      side: 'CALL',
+      watchLevel: 2550,
+      breachStartTime: null,
+    };
+    (tradeStore.getWatchList as jest.Mock).mockReturnValue([mockStock]);
+    (marketData.getLtp as jest.Mock).mockResolvedValue({ ltp: 0 });
+
+    const promise = runPriceMonitor();
+    jest.runAllTimers();
+    await promise;
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Received 0 LTP for RELIANCE'),
+    );
+    expect(tradeStore.updateWatchStock).not.toHaveBeenCalled();
+  });
 });

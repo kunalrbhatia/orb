@@ -70,10 +70,15 @@ export async function getTopMovers(): Promise<{
   const tokens = NIFTY_50_TOKENS;
   const stocks: Stock[] = [];
 
+  logger.info(`Fetching LTP for ${tokens.length} Nifty 50 tokens...`);
+
   for (const token of tokens) {
     try {
       const scrip = scrips.find(s => s.token === token && s.exch_seg === 'NSE');
-      if (!scrip) continue;
+      if (!scrip) {
+        logger.debug(`Token ${token} not found in scrip master`);
+        continue;
+      }
       const payload = {
         exchange: 'NSE',
         tradingsymbol: scrip.symbol,
@@ -84,7 +89,7 @@ export async function getTopMovers(): Promise<{
         payload,
       );
       const item = response.data;
-      if (item) {
+      if (item && item.ltp > 0) {
         const ltp = item.ltp;
         const close = item.close;
         const changePercent = close !== 0 ? ((ltp - close) / close) * 100 : 0;
@@ -95,6 +100,10 @@ export async function getTopMovers(): Promise<{
           ltp,
           changePercent,
         });
+      } else {
+        logger.warn(
+          `Received invalid LTP for ${scrip.symbol}: ${item?.ltp || 0}`,
+        );
       }
       // Rate limit: 3 requests per second
       await new Promise(resolve => setTimeout(resolve, 350));
@@ -104,6 +113,8 @@ export async function getTopMovers(): Promise<{
       );
     }
   }
+
+  logger.info(`Fetched data for ${stocks.length} stocks`);
 
   const sorted = [...stocks].sort((a, b) => b.changePercent - a.changePercent);
   const gainers = sorted.filter(s => s.changePercent > 0).slice(0, 5);

@@ -18,6 +18,8 @@ describe('tradeStore', () => {
     tradeStore.setWatchList([mockStock]);
     expect(tradeStore.getWatchList()).toHaveLength(1);
     expect(tradeStore.getWatchList()[0].symbol).toBe('SBIN');
+    tradeStore.clearWatchList();
+    expect(tradeStore.getWatchList()).toHaveLength(0);
   });
 
   it('should update watch stock', () => {
