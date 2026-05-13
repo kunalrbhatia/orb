@@ -9,7 +9,27 @@ import { startServer } from './server.js';
 import { logger } from './helpers/logger.js';
 import { sendNotification } from './notifier.js';
 import { startTelegramListener, isKilled } from './helpers/telegramListener.js';
+import { tradeStore } from './store/tradeStore.js';
 import moment from 'moment-timezone';
+
+async function dailyInit(): Promise<void> {
+  try {
+    const { isTradingDay: trading, reason } = await isTradingDay();
+    if (!trading) {
+      logger.info(`Today is not a trading day: ${reason}`);
+      return;
+    }
+    await login();
+    await downloadScripMaster();
+    tradeStore.clearWatchList();
+    tradeStore.setActiveTrade(null);
+    logger.info('Daily initialization successful');
+  } catch (error) {
+    logger.error(
+      `Daily initialization failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
 
 async function bootstrap(): Promise<void> {
   logger.info('Starting ORB Algo...');
@@ -21,7 +41,15 @@ async function bootstrap(): Promise<void> {
     // Start Telegram listener to handle commands (/killorb, /paperorb, /resumeorb)
     void startTelegramListener();
 
-    // Register Cron Jobs (Even on holidays, to keep process alive)
+    // Daily Initialization: 9:00 AM IST (Mon-Fri)
+    cron.schedule(
+      '0 9 * * 1-5',
+      () => {
+        void dailyInit();
+      },
+      { timezone: 'Asia/Kolkata' },
+    );
+
     // Morning Scanner: 10:30 AM IST (Mon-Fri)
     cron.schedule(
       '30 10 * * 1-5',
@@ -40,13 +68,32 @@ async function bootstrap(): Promise<void> {
 
     // Price Monitor: Every 5 mins between 10:35 AM and 3:25 PM
     cron.schedule(
-      '*/5 10-15 * * 1-5',
+      '35-55/5 10 * * 1-5',
       () => {
         void (async (): Promise<void> => {
-          if (isKilled()) {
-            logger.warn('Price Monitor skipped: Algo is in KILLED state.');
-            return;
-          }
+          if (isKilled()) return;
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runPriceMonitor();
+        })();
+      },
+      { timezone: 'Asia/Kolkata' },
+    );
+    cron.schedule(
+      '*/5 11-14 * * 1-5',
+      () => {
+        void (async (): Promise<void> => {
+          if (isKilled()) return;
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runPriceMonitor();
+        })();
+      },
+      { timezone: 'Asia/Kolkata' },
+    );
+    cron.schedule(
+      '0-25/5 15 * * 1-5',
+      () => {
+        void (async (): Promise<void> => {
+          if (isKilled()) return;
           const { isTradingDay: trading } = await isTradingDay();
           if (trading) await runPriceMonitor();
         })();
@@ -56,13 +103,32 @@ async function bootstrap(): Promise<void> {
 
     // Trade Monitor: Every 5 mins between 10:35 AM and 3:25 PM
     cron.schedule(
-      '*/5 10-15 * * 1-5',
+      '35-55/5 10 * * 1-5',
       () => {
         void (async (): Promise<void> => {
-          if (isKilled()) {
-            logger.warn('Trade Monitor skipped: Algo is in KILLED state.');
-            return;
-          }
+          if (isKilled()) return;
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runTradeMonitor();
+        })();
+      },
+      { timezone: 'Asia/Kolkata' },
+    );
+    cron.schedule(
+      '*/5 11-14 * * 1-5',
+      () => {
+        void (async (): Promise<void> => {
+          if (isKilled()) return;
+          const { isTradingDay: trading } = await isTradingDay();
+          if (trading) await runTradeMonitor();
+        })();
+      },
+      { timezone: 'Asia/Kolkata' },
+    );
+    cron.schedule(
+      '0-25/5 15 * * 1-5',
+      () => {
+        void (async (): Promise<void> => {
+          if (isKilled()) return;
           const { isTradingDay: trading } = await isTradingDay();
           if (trading) await runTradeMonitor();
         })();
@@ -79,8 +145,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    await login();
-    await downloadScripMaster();
+    await dailyInit();
 
     logger.info('ORB Algo initialized successfully');
 

@@ -13,6 +13,12 @@ export async function runPriceMonitor(): Promise<void> {
   for (const stock of watchList) {
     try {
       const { ltp } = await getLtp(stock.symbol, stock.symbolToken);
+
+      if (ltp <= 0) {
+        logger.warn(`Received 0 LTP for ${stock.symbol}. Skipping.`);
+        continue;
+      }
+
       const isBreached =
         stock.side === 'CALL' ? ltp > stock.watchLevel : ltp < stock.watchLevel;
 

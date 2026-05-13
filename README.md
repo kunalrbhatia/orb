@@ -8,24 +8,27 @@ ORB is a momentum-based intraday options strategy. After the market opens and se
 
 ## How This Algo Works — Step by Step
 
-1. **10:30 AM IST — Morning Scan**
+1. **09:00 AM IST — Daily Initialization**
+   The bot automatically logs into Angel One, downloads the latest scrip master data, and clears any state from the previous day. This ensures fresh session tokens and instruments for the new trading day.
+
+2. **10:30 AM IST — Morning Scan**
    Fetch all 50 Nifty 50 stocks via Angel One API. Compute % change from previous close. Pick top 5 gainers and top 5 losers.
 
-2. **Resistance and Support Identification**
+3. **Resistance and Support Identification**
    For each of the 10 stocks, fetch the monthly options chain and the morning's candle data (from 9:15 AM to 10:30 AM).
    - **Resistance (Gainers):** The higher of (Maximum Call OI strike above spot) and (Morning High).
    - **Support (Losers):** The lower of (Maximum Put OI strike below spot) and (Morning Low).
    This dual-check ensures we only enter trades when both price action and heavy OI levels are cleared.
 
-3. **Every 5 Minutes — Price Monitoring**
+4. **10:35 AM IST to 03:25 PM IST — Price Monitoring**
    Poll the spot price of all 10 stocks every 5 minutes. Wait for price to breach the identified level and *sustain* beyond it for 5 continuous minutes (not just a wick — actual price sustain).
 
-4. **Trade Entry (first confirmed breakout wins, one trade per day)**
+5. **Trade Entry (first confirmed breakout wins, one trade per day)**
    - Buy the Call/Put at the breakout strike (1 lot)
    - Sell a hedge option at a strike where premium ≈ 1/4th of bought premium (reduces cost of trade)
    - Place a hard stoploss order on the exchange: max loss ₹3,000
 
-5. **Trailing Stoploss**
+6. **Trailing Stoploss**
    | Profit Milestone | SL Moves To         |
    |------------------|---------------------|
    | ₹2,000           | Entry cost (risk-free) |
@@ -33,7 +36,7 @@ ORB is a momentum-based intraday options strategy. After the market opens and se
    | ₹3,000           | Lock ₹1,000 profit  |
    | Every +₹500      | Lock previous ₹500  |
 
-6. **Exit**
+7. **Exit**
    Trade exits when: SL is hit, trailing SL is hit, or 3:20 PM EOD square-off — whichever comes first. No second trade that day.
 
 ## Resilience & Efficiency

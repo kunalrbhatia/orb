@@ -33,6 +33,10 @@ class TradeStore {
     return this.watchList;
   }
 
+  clearWatchList(): void {
+    this.watchList = [];
+  }
+
   setActiveTrade(trade: ActiveTrade | null): void {
     this.activeTrade = trade;
   }
