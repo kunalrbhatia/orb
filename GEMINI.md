@@ -83,6 +83,8 @@ This rule has no exceptions.
 
 Always review `GEMINI.md` (and specifically the **Project Conventions** below) before executing any shell commands or pushing code. This ensures strict compliance with local environment constraints (e.g., mandatory PowerShell syntax) and project-specific workflows. This is critical to prevent command failures in the local Windows environment.
 
+**Environment Note:** You are currently in a **local Windows environment**, NOT the production server. Commands related to production process management (e.g., `pm2`) will fail and should not be executed here.
+
 ### Project Conventions
 
 - Sanity Checks: Always run `pnpm lint ; pnpm format ; pnpm typecheck ; pnpm build ; pnpm test --coverage` before committing or creating a Pull Request.

@@ -26,13 +26,14 @@ export async function runMorningScanner(): Promise<void> {
     const watchList: WatchStock[] = [];
 
     for (const stock of gainers) {
-      // Delay between stocks to respect rate limits
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Delay between stocks to respect rate limits (increased to 3s)
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       const chain = await getOptionChain(stock.name, expiry);
       const oiResistance = findResistance(chain, stock.ltp);
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delay before historical data calls (increased to 1s)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
         morningCandles.length > 0
@@ -42,8 +43,8 @@ export async function runMorningScanner(): Promise<void> {
         ? morningLevels.resistance
         : stock.ltp;
 
-      // Historical Analysis (90 Days)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Historical Analysis (90 Days) - Delay increased to 1s
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const histCandles = await getHistoricalData(
         stock.symbolToken,
         'NSE',
@@ -73,18 +74,19 @@ export async function runMorningScanner(): Promise<void> {
       });
 
       logger.info(
-        `[${stock.symbol}] OI Res: ${oiResistance}, Candle High: ${candleResistance}, Hist Res: ${nearestHistResistance}, Final: ${watchLevel}`,
+        `[${stock.symbol}] CALL Watch - OI Res: ${oiResistance}, Candle High: ${candleResistance}, Hist Res: ${nearestHistResistance}, Final: ${watchLevel}`,
       );
     }
 
     for (const stock of losers) {
-      // Delay between stocks to respect rate limits
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Delay between stocks to respect rate limits (increased to 3s)
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       const chain = await getOptionChain(stock.name, expiry);
       const oiSupport = findSupport(chain, stock.ltp);
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delay before historical data calls (increased to 1s)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const morningCandles = await getMorningCandles(stock.symbolToken);
       const morningLevels =
         morningCandles.length > 0
@@ -92,8 +94,8 @@ export async function runMorningScanner(): Promise<void> {
           : null;
       const candleSupport = morningLevels ? morningLevels.support : stock.ltp;
 
-      // Historical Analysis (90 Days)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Historical Analysis (90 Days) - Delay increased to 1s
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const histCandles = await getHistoricalData(
         stock.symbolToken,
         'NSE',
@@ -119,7 +121,7 @@ export async function runMorningScanner(): Promise<void> {
       });
 
       logger.info(
-        `[${stock.symbol}] OI Sup: ${oiSupport}, Candle Low: ${candleSupport}, Hist Sup: ${nearestHistSupport}, Final: ${watchLevel}`,
+        `[${stock.symbol}] PUT Watch - OI Sup: ${oiSupport}, Candle Low: ${candleSupport}, Hist Sup: ${nearestHistSupport}, Final: ${watchLevel}`,
       );
     }
 

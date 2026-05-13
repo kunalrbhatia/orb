@@ -41,9 +41,9 @@ ORB is a momentum-based intraday options strategy. After the market opens and se
 
 ## Resilience & Efficiency
 
-- **Batch API Integration:** Uses Angel One's batch market data API to fetch prices for 50+ stocks and options in small chunks, drastically reducing total API calls and avoiding rate-limit throttles.
-- **Exponential Backoff:** Implements robust retry logic with a 2-second delay for failed batch requests, specifically handling `403 Forbidden` WAF rejections.
-- **Diagnostic Observability:** Enhanced logging captures snippets of rejection responses (e.g., broker-side firewall messages) to troubleshoot network-level blocks in production.
+- **Exponential Backoff:** Implements robust retry logic with a 2-second initial delay for failed requests, specifically handling `403 Forbidden` and `429 Too Many Requests` status codes, as well as Angel One's custom "status: false" error patterns.
+- **Throttled Scanning:** The morning scanner uses deliberate delays (3s between stocks, 1s between historical requests) to respect strict broker rate limits (3 requests per second for historical data), ensuring stability during high-load morning periods.
+- **Diagnostic Observability:** Enhanced logging captures snippets of rejection responses and HTTP methods to troubleshoot network-level blocks and rate-limiting in production.
 - **Dynamic Monthly Expiry:** Automatically detects and targets the final Thursday of the current month (or the next, if the current month's expiry has passed) to ensure option chain data is always current and valid.
 
 ## Tech Stack
